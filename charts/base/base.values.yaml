@@ -1,0 +1,209 @@
+# Default values for ke-use-nfs-server.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: harbor.somaz.link/somaz/game
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imageCredentials:
+  enabled: true
+  registry: https://harbor.somaz.link
+  username: robot$gitlab
+  password: 8Id8Gdfd0adsfnkldsjadTgdagds
+  name: harbor-robot-secret
+
+imagePullSecrets:
+  - name: harbor-robot-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  name: base-ingress
+  enabled: false
+
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe: {}
+readinessProbe: {}
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+rbac:
+  enabled: false
+#   serviceAccountName: "" # Leave empty to use base.fullname as default
+#   # role example
+#   role:
+#     name: cert-job-manager-base
+#     resources:
+#       - apiGroups: ["cert-manager.io"]
+#         resources: ["certificaterequests"]
+#         verbs: ["get", "list", "watch", "delete"]
+#       - apiGroups: ["batch"]
+#         resources: ["jobs"]
+#         verbs: ["get", "list", "watch", "delete"]
+#   roleBinding:
+#     name: cert-job-manager-binding-base
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+revisionHistoryLimit: 1
+
+envConfig: {}
+  # NODE_ENV: base
+
+configs:
+  enabled: false
+  # # example configmap
+  # items:
+  #   - name: app-config
+  #     datas:
+  #       APP_ENV: "production"
+  #       DEBUG: "false"
+  #   - name: debug-config
+  #     datas:
+  #       APP_ENV: "development"
+  #       DEBUG: "true"
+
+persistentVolumes:
+  enabled: false
+  # items:
+  #   - name: pv-a
+  #     storage: 5Gi
+  #     volumeMode: Filesystem
+  #     accessModes:
+  #       - ReadWriteMany
+  #     reclaimPolicy: Retain
+  #     storageClassName: nfs-client
+  #     path: /data/dev-a
+  #     server: 10.10.10.5
+  #   - name: pv-b
+  #     storage: 10Gi
+  #     volumeMode: Filesystem
+  #     accessModes:
+  #       - ReadWriteMany
+  #     reclaimPolicy: Delete
+  #     storageClassName: nfs-client
+  #     path: /data/dev-b
+  #     server: 10.10.10.5
+
+persistentVolumeClaims:
+  enabled: false
+  # items:
+  #   - name: pvc-a
+  #     annotations:
+  #       nfs.io/storage-path: "test-path" # storage path : ${.PVC.namespace}/${.PVC.annotations.nfs.io/storage-path} use dynamic provisioner
+  #     accessModes:
+  #       - ReadWriteOnce
+  #     storageClassName: nfs-client
+  #     storage: 5Gi
+  #     mountPath: /app/data
+  #     selector:
+  #       volumeName: pv-a
+  #   - name: pvc-b
+  #     annotations:
+  #       nfs.io/storage-path: "test2-path"
+  #     accessModes:
+  #       - ReadWriteOnce
+  #     storageClassName: nfs-client
+  #     storage: 5Gi
+  #     mountPath: /app/data
+
+# Extra volumes to add to the deployment
+extraVolumes: []
+  # - name: extra-volume
+  #   emptyDir: {}
+  # - name: config-volume
+  #   configMap:
+  #     name: special-config
+
+# Extra volume mounts to add to the container
+extraVolumeMounts: []
+  # - name: extra-volume
+  #   mountPath: /mnt/extra-volume
+  # - name: config-volume
+  #   mountPath: /etc/config
+
+# AWS
+certificate:
+  enabled: false
+  # example certificate
+  # secretName: base-tls
+  # commonName: base.com
+  # duration: 2160h0m0s # 90d
+  # renewBefore: 720h0m0s # 30d
+  # dnsNames:
+  # - base.com
+  # issuerName: route53-issuer # issuer name
+  # issuerKind: ClusterIssuer # issuer kind
+
+# # GCP
+# certificate:
+#   # example certificate
+#   # secretName: base-tls
+#   # commonName: base.com
+#   # duration: 2160h0m0s # 90d
+#   # renewBefore: 720h0m0s # 30d
+#   # dnsNames:
+#   # - base.com
+#   # issuerName: clouddns-issuer # issuer name
+#   # issuerKind: ClusterIssuer # issuer kind
+  
+certCleanup:
+  enabled: false
+  # CronJobName: cert-cleanup-cronjob-base
+  # olderThanDays: 100
+  # YesterDays: 1
+

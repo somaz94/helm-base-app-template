@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: dev-somaz-applicationset
+spec:
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - cluster: somaz-dev-cluster # your cluster name
+                  url: https://10.10.10.50:6443  # your cluster url
+                  values:
+                    project: somaz
+                    environment: dev1
+                - cluster: somaz-dev-cluster # your cluster name
+                  url: https://10.10.10.50:6443  # your cluster url
+                  values:
+                    project: somaz
+                    environment: dev2
+          - git:
+              repoURL: git@gitlab.somaz.link:server/argocd-applicationset.git # your source repo
+              revision: HEAD
+              directories:
+                - path: values/somaz/*
+              # refreshInterval: 180s # default is 180s
+  template:
+    metadata:
+      name: '{{values.environment}}-{{values.project}}-{{path.basename}}'
+    spec:
+      project: '{{values.project}}'
+      source:
+        repoURL: git@gitlab.somaz.link:server/argocd-applicationset.git
+        targetRevision: HEAD
+        path: charts/base
+        helm:
+          version: v3
+          releaseName: '{{values.environment}}-{{values.project}}-{{path.basename}}'
+          valueFiles:
+            - '../../values/{{values.project}}/{{path.basename}}/{{values.environment}}.values.yaml'
+      destination:
+        server: '{{url}}'
+        namespace: '{{values.environment}}-{{values.project}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        # preserveResourcesOnDeletion: false # default is true 
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+
+
+
+

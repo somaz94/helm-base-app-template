@@ -20,6 +20,9 @@ spec:
       {{- end }}
       labels:
         {{- include "base.selectorLabels" . | nindent 8 }}
+        {{- if .Values.version }}
+        version: {{ .Values.version | toString | quote }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

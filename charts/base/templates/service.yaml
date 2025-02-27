@@ -13,3 +13,6 @@ spec:
       name: http
   selector:
     {{- include "base.selectorLabels" . | nindent 4 }}
+    {{- if .Values.version }}
+    version: {{ .Values.version | toString | quote }}
+    {{- end }}

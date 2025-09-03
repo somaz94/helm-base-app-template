@@ -1,0 +1,92 @@
+# EFS 사용 예제 values 파일
+# 이 파일을 참고하여 실제 환경에 맞게 수정하세요
+
+# 기본 애플리케이션 설정
+replicaCount: 2
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: "1.21"
+
+# EFS 설정 활성화
+efs:
+  persistentVolumes:
+    enabled: true
+    # 실제 EFS 파일 시스템 ID로 변경 필요
+    fileSystemId: "fs-1234567890abcdef0"
+    # 접근 포인트가 있는 경우 지정 (선택사항)
+    # accessPointId: "fsap-1234567890abcdef0"
+    # 기본 StorageClass (기존에 있는 클래스 사용)
+    storageClassName: "efs-sc"
+    items:
+      - name: "my-app-data-pv"
+        storage: "5Gi"
+        volumeMode: Filesystem
+        accessModes:
+          - ReadWriteMany
+        reclaimPolicy: Retain
+        storageClassName: "efs-sc"
+        subPath: "/data"  # EFS 내부 /data 경로 (volumeAttributes.path로 설정됨)
+      - name: "my-app-logs-pv"
+        storage: "5Gi"
+        volumeMode: Filesystem
+        accessModes:
+          - ReadWriteMany
+        reclaimPolicy: Retain
+        storageClassName: "efs-sc"
+        subPath: "/logs"  # EFS 내부 /logs 경로 (volumeAttributes.path로 설정됨)
+      - name: "my-app-version-pv"
+        storage: "5Gi"
+        volumeMode: Filesystem
+        accessModes:
+          - ReadWriteMany
+        reclaimPolicy: Retain
+        storageClassName: "efs-sc"
+        subPath: "/version"  # EFS 내부 /version 경로 (volumeAttributes.path로 설정됨)
+
+  persistentVolumeClaims:
+    enabled: true
+    items:
+      - name: "my-app-data-pvc"
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "efs-sc"
+        storage: "5Gi"
+        mountPath: "/app/data"
+        selector:
+          volumeName: "my-app-data-pv"
+      - name: "my-app-logs-pvc"
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "efs-sc"
+        storage: "5Gi"
+        mountPath: "/app/logs"
+        selector:
+          volumeName: "my-app-logs-pv"
+      - name: "my-app-version-pvc"
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "efs-sc"
+        storage: "5Gi"
+        mountPath: "/app/version"
+        selector:
+          volumeName: "my-app-version-pv"
+
+# 서비스 설정
+service:
+  type: ClusterIP
+  port: 80
+
+# 리소스 제한
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# 노드 선택자 (EFS CSI 드라이버가 설치된 노드)
+nodeSelector:
+  kubernetes.io/os: linux

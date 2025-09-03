@@ -9,6 +9,10 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
+  {{- if .Values.strategy.enabled }}
+  strategy:
+    {{- toYaml .Values.strategy.config | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "base.selectorLabels" . | nindent 6 }}
@@ -19,6 +23,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         image-tag: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+        {{- if and .Values.initContainers (and .Values.initContainers.enabled .Values.initContainers.items) }}
+        init-containers-checksum: {{ .Values.initContainers | toJson | sha256sum }}
+        {{- end }}
       labels:
         {{- include "base.selectorLabels" . | nindent 8 }}
         {{- if .Values.version }}
@@ -32,16 +39,74 @@ spec:
       serviceAccountName: {{ include "base.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if and .Values.persistentVolumeClaims.enabled .Values.persistentVolumeClaims.items }}
       volumes:
+        {{- if and .Values.persistentVolumeClaims (and .Values.persistentVolumeClaims.enabled .Values.persistentVolumeClaims.items) }}
         {{- range $persistentVolumeClaim := .Values.persistentVolumeClaims.items }}
         - name: {{ $persistentVolumeClaim.name }}
           persistentVolumeClaim:
             claimName: {{ $persistentVolumeClaim.name }}
         {{- end }}
-      {{- end }}
-      {{- with .Values.extraVolumes }}
+        {{- end }}
+        {{- if and .Values.emptyDirVolumes (and .Values.emptyDirVolumes.enabled .Values.emptyDirVolumes.items) }}
+        {{- range $emptyDir := .Values.emptyDirVolumes.items }}
+        - name: {{ $emptyDir.name }}
+          emptyDir: 
+            {{- if $emptyDir.sizeLimit }}
+            sizeLimit: {{ $emptyDir.sizeLimit }}
+            {{- end }}
+            {{- if $emptyDir.medium }}
+            medium: {{ $emptyDir.medium }}
+            {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if and .Values.initContainers (and .Values.initContainers.enabled .Values.initContainers.items) }}
+      initContainers:
+        {{- range $initContainer := .Values.initContainers.items }}
+        - name: {{ $initContainer.name }}
+          image: {{ $initContainer.image }}
+          {{- if $initContainer.imagePullPolicy }}
+          imagePullPolicy: {{ $initContainer.imagePullPolicy }}
+          {{- end }}
+          {{- if $initContainer.command }}
+          command:
+            {{- toYaml $initContainer.command | nindent 12 }}
+          {{- end }}
+          {{- if $initContainer.args }}
+          args:
+            {{- toYaml $initContainer.args | nindent 12 }}
+          {{- end }}
+          {{- if $initContainer.env }}
+          env:
+            {{- if $.Values.environment }}
+            - name: ENVIRONMENT
+              value: {{ $.Values.environment | quote }}
+            {{- end }}
+            {{- toYaml $initContainer.env | nindent 12 }}
+          {{- else if $.Values.environment }}
+          env:
+            - name: ENVIRONMENT
+              value: {{ $.Values.environment | quote }}
+          {{- end }}
+          {{- if $initContainer.envFrom }}
+          envFrom:
+            {{- toYaml $initContainer.envFrom | nindent 12 }}
+          {{- end }}
+          {{- if $initContainer.volumeMounts }}
+          volumeMounts:
+            {{- toYaml $initContainer.volumeMounts | nindent 12 }}
+          {{- end }}
+          {{- if $initContainer.resources }}
+          resources:
+            {{- toYaml $initContainer.resources | nindent 12 }}
+          {{- end }}
+          {{- if $initContainer.securityContext }}
+          securityContext:
+            {{- toYaml $initContainer.securityContext | nindent 12 }}
+          {{- end }}
+        {{- end }}
       {{- end }}
       containers:
         - name: {{ include "base.fullname" . }}
@@ -51,12 +116,16 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.envConfig }}
           env:
+          {{- if .Values.environment }}
+            - name: ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+          {{- end }}
           {{- range $key, $value := .Values.envConfig }}
             - name: {{ $key }}
               value: {{ $value | quote }}
           {{- end }}
           {{- end }}
-          {{- if and .Values.configs.enabled .Values.configs.items }}
+          {{- if and .Values.configs (and .Values.configs.enabled .Values.configs.items) }}
           envFrom:
           {{- range $config := .Values.configs.items }}
             - configMapRef:
@@ -68,10 +137,19 @@ spec:
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
           volumeMounts:
-            {{- if and .Values.persistentVolumeClaims.enabled .Values.persistentVolumeClaims.items }}
+            {{- if and .Values.persistentVolumeClaims (and .Values.persistentVolumeClaims.enabled .Values.persistentVolumeClaims.items) }}
             {{- range $persistentVolumeClaim := .Values.persistentVolumeClaims.items }}
             - name: {{ $persistentVolumeClaim.name }}
               mountPath: {{ $persistentVolumeClaim.mountPath }}
+            {{- end }}
+            {{- end }}
+            {{- if and .Values.emptyDirVolumes (and .Values.emptyDirVolumes.enabled .Values.emptyDirVolumes.items) }}
+            {{- range $emptyDir := .Values.emptyDirVolumes.items }}
+            - name: {{ $emptyDir.name }}
+              mountPath: {{ $emptyDir.mountPath }}
+              {{- if $emptyDir.readOnly }}
+              readOnly: {{ $emptyDir.readOnly }}
+              {{- end }}
             {{- end }}
             {{- end }}
             {{- with .Values.extraVolumeMounts }}

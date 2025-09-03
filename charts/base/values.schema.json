@@ -199,4 +199,3 @@
     "required": ["replicaCount", "image", "service"]
 }
 
-

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "base-aws.fullname" . }}
+  labels:
+    {{- include "base-aws.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "base-aws.selectorLabels" . | nindent 4 }}
+    {{- if .Values.version }}
+    version: {{ .Values.version | toString | quote }}
+    {{- end }}

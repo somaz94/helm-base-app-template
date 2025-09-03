@@ -3,7 +3,11 @@
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
-version:""
+version: ""
+
+# Environment setting - automatically injects ENVIRONMENT variable to both main container and init containers
+# Example: environment: "staging" will add ENVIRONMENT="staging" to container env vars
+environment: ""
 
 image:
   repository: harbor.somaz.link/somaz/game
@@ -13,9 +17,9 @@ image:
 
 imageCredentials:
   enabled: true
-  registry: https://harbor.somaz.link
+  registry: https://harbor.concrit.us
   username: robot$gitlab
-  password: 8Id8Gdfd0adsfnkldsjadTgdagds
+  password: 8IaKfrhwd9CBE5sv9JlgfsT6crMGM0Pm
   name: harbor-robot-secret
 
 imagePullSecrets:
@@ -71,6 +75,14 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+strategy:
+  enabled: false
+  config:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1    # Maximum number of pods that can be created above the desired number of pods
+      maxUnavailable: "50%"  # Maximum number of unavailable pods during the update
+
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -117,6 +129,108 @@ configs:
   #     datas:
   #       APP_ENV: "development"
   #       DEBUG: "true"
+
+# Init Containers Setting
+initContainers:
+  enabled: false
+  # items:
+  #   - name: game-data-downloader
+  #     image: alpine:latest
+  #     imagePullPolicy: IfNotPresent
+  #     command:
+  #       - /bin/sh
+  #       - -c
+  #       - |
+  #         apk add --no-cache wget
+          
+  #         # 로그 디렉토리 생성
+  #         mkdir -p /app/init
+  #         LOG_FILE="/app/init/download.log"
+          
+  #         echo "Downloading game data files for environment: $ENVIRONMENT"
+  #         echo "Base URL: $FILE_SERVER_URL"
+          
+  #         # 로그 시작
+  #         echo "=== Game Data Download Log ===" > $LOG_FILE
+  #         echo "Start Time: $(date)" >> $LOG_FILE
+  #         echo "Environment: $ENVIRONMENT" >> $LOG_FILE
+  #         echo "File Server URL: $FILE_SERVER_URL" >> $LOG_FILE
+  #         echo "" >> $LOG_FILE
+          
+  #         # Data 다운로드
+  #         echo "=== Downloading data files... ===" >> $LOG_FILE
+  #         wget -r -np -nH --cut-dirs=4 \
+  #              --no-check-certificate \
+  #              --quiet \
+  #              -P /app/data/ \
+  #              -A "*.json" \
+  #              "$FILE_SERVER_URL/projectm/$ENVIRONMENT/server/data/" 2>/dev/null
+          
+  #         echo "Data download completed. Files downloaded:" >> $LOG_FILE
+  #         find /app/data -name "*.json" | sed 's|.*/||' | sort >> $LOG_FILE
+  #         echo "" >> $LOG_FILE
+          
+  #         # Version 다운로드
+  #         echo "=== Downloading version files... ===" >> $LOG_FILE
+  #         wget -r -np -nH --cut-dirs=4 \
+  #              --no-check-certificate \
+  #              --quiet \
+  #              -A "*.json" \
+  #              -P /app/version/ \
+  #              "$FILE_SERVER_URL/projectm/$ENVIRONMENT/server/version/" 2>/dev/null
+          
+  #         echo "Version download completed. Files downloaded:" >> $LOG_FILE
+  #         find /app/version -type f | sed 's|.*/||' | sort >> $LOG_FILE
+          
+  #         DATA_COUNT=$(find /app/data -name '*.json' | wc -l)
+  #         VERSION_COUNT=$(find /app/version -type f | wc -l)
+          
+  #         echo "Game data download completed for $ENVIRONMENT!"
+  #         echo "Data files: $DATA_COUNT"
+  #         echo "Version files: $VERSION_COUNT"
+  #         echo "Log saved to: $LOG_FILE"
+          
+  #         # 로그 마무리
+  #         echo "" >> $LOG_FILE
+  #         echo "=== Download Summary ===" >> $LOG_FILE
+  #         echo "Data files: $DATA_COUNT" >> $LOG_FILE
+  #         echo "Version files: $VERSION_COUNT" >> $LOG_FILE
+  #         echo "End Time: $(date)" >> $LOG_FILE
+  #         echo "Status: COMPLETED" >> $LOG_FILE
+  #     env:
+  #       - name: FILE_SERVER_URL
+  #         value: "https://file-server.concrit.us"
+  #     volumeMounts:
+  #       - name: game-data-volume
+  #         mountPath: /app/data
+  #       - name: game-version-volume
+  #         mountPath: /app/version
+  #       - name: init-log-volume
+  #         mountPath: /app/init
+  #     resources:
+  #       requests:
+  #         memory: "64Mi"
+  #         cpu: "50m"
+  #       limits:
+  #         memory: "128Mi"
+  #         cpu: "100m"
+
+# EmptyDir Volumes Setting
+emptyDirVolumes:
+  enabled: false
+  # items:
+  #   - name: game-data-volume
+  #     mountPath: /app/data
+  #     readOnly: true
+  #     sizeLimit: "1Gi"
+  #   - name: game-version-volume
+  #     mountPath: /app/version
+  #     readOnly: true
+  #     sizeLimit: "100Mi"
+  #   - name: init-log-volume
+  #     mountPath: /app/init
+  #     readOnly: true
+  #     sizeLimit: "10Mi"
 
 persistentVolumes:
   enabled: false

@@ -1,37 +1,37 @@
 # Base AWS Helm Chart
 
-AWS 환경에서 사용할 수 있는 기본 Helm Chart입니다. EFS(Elastic File System)를 통한 영구 스토리지를 지원합니다.
+A basic Helm Chart for use in AWS environments. Supports persistent storage through EFS (Elastic File System).
 
 <br/>
 
-## 기능
+## Features
 
-- AWS EFS 지원
-- 여러 PersistentVolume 및 PersistentVolumeClaim 배열 지원
-- EFS 서브패스 지정으로 디렉토리 분리
-- PVC별 mountPath 개별 설정
-- 다중 접근 모드 (ReadWriteMany) 지원
-- 기존 StorageClass 사용
-
-<br/>
-
-## 전제 조건
-
-1. AWS EKS 클러스터
-2. EFS CSI 드라이버 설치
-3. EFS 파일 시스템 생성
-4. 기존 EFS StorageClass 존재
-5. 적절한 IAM 권한 설정
+- AWS EFS support
+- Multiple PersistentVolume and PersistentVolumeClaim array support
+- Directory separation through EFS subpath specification
+- Individual mountPath configuration per PVC
+- Multiple access modes (ReadWriteMany) support
+- Uses existing StorageClass
 
 <br/>
 
-### EFS CSI 드라이버 설치
+## Prerequisites
+
+1. AWS EKS cluster
+2. EFS CSI driver installation
+3. EFS file system creation
+4. Existing EFS StorageClass
+5. Proper IAM permissions setup
+
+<br/>
+
+### EFS CSI Driver Installation
 
 ```bash
 kubectl apply -k "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.7"
 ```
 
-또는 Helm으로 설치:
+Or install with Helm:
 
 ```bash
 helm repo add aws-efs-csi-driver https://kubernetes-sigs.github.io/aws-efs-csi-driver/
@@ -43,13 +43,13 @@ helm upgrade -i aws-efs-csi-driver aws-efs-csi-driver/aws-efs-csi-driver \
 
 <br/>
 
-## 사용법
+## Usage
 
 <br/>
 
-### 1. EFS 파일 시스템 생성
+### 1. Create EFS File System
 
-AWS 콘솔 또는 CLI를 통해 EFS 파일 시스템을 생성합니다.
+Create an EFS file system through AWS console or CLI.
 
 ```bash
 aws efs create-file-system \
@@ -59,16 +59,16 @@ aws efs create-file-system \
 
 <br/>
 
-### 2. Values 파일 설정
+### 2. Configure Values File
 
-`values-efs-example.yaml` 파일을 참고하여 설정합니다:
+Configure using the `values-efs-example.yaml` file as reference:
 
 ```yaml
 efs:
   persistentVolumes:
     enabled: true
-    fileSystemId: "fs-1234567890abcdef0"  # 실제 EFS 파일 시스템 ID
-    storageClassName: "efs-sc"  # 기존 StorageClass 사용
+    fileSystemId: "fs-1234567890abcdef0"  # Actual EFS file system ID
+    storageClassName: "efs-sc"  # Use existing StorageClass
     items:
       - name: "my-app-data-pv"
         storage: "5Gi"
@@ -77,7 +77,7 @@ efs:
           - ReadWriteMany
         reclaimPolicy: Retain
         storageClassName: "efs-sc"
-        subPath: "data"  # EFS 내부 data 디렉토리 (volumeAttributes.path로 설정)
+        subPath: "data"  # EFS internal data directory (set as volumeAttributes.path)
       - name: "my-app-logs-pv"
         storage: "5Gi"
         volumeMode: Filesystem
@@ -85,7 +85,7 @@ efs:
           - ReadWriteMany
         reclaimPolicy: Retain
         storageClassName: "efs-sc"
-        subPath: "logs"  # EFS 내부 logs 디렉토리 (volumeAttributes.path로 설정)
+        subPath: "logs"  # EFS internal logs directory (set as volumeAttributes.path)
 
   persistentVolumeClaims:
     enabled: true
@@ -95,7 +95,7 @@ efs:
           - ReadWriteMany
         storageClassName: "efs-sc"
         storage: "5Gi"
-        mountPath: "/app/data"  # Pod 내 마운트 경로
+        mountPath: "/app/data"  # Mount path within pod
         selector:
           volumeName: "my-app-data-pv"
       - name: "my-app-logs-pvc"
@@ -103,92 +103,92 @@ efs:
           - ReadWriteMany
         storageClassName: "efs-sc"
         storage: "5Gi"
-        mountPath: "/app/logs"  # Pod 내 마운트 경로
+        mountPath: "/app/logs"  # Mount path within pod
         selector:
           volumeName: "my-app-logs-pv"
 ```
 
 <br/>
 
-## 설정 옵션
+## Configuration Options
 
 <br/>
 
-### PersistentVolumes 설정
+### PersistentVolumes Configuration
 
-| 파라미터 | 설명 | 기본값 |
-|----------|------|--------|
-| `persistentVolumes.enabled` | PV 사용 여부 | `false` |
-| `persistentVolumes.fileSystemId` | EFS 파일 시스템 ID (필수) | `""` |
-| `persistentVolumes.accessPointId` | EFS 접근 포인트 ID (선택) | `""` |
-| `persistentVolumes.storageClassName` | 기본 스토리지 클래스 | `"efs-sc"` |
-
-<br/>
-
-### PV Items 설정
-
-| 파라미터 | 설명 | 기본값 |
-|----------|------|--------|
-| `items[].name` | PV 이름 | - |
-| `items[].storage` | 스토리지 용량 | - |
-| `items[].volumeMode` | 볼륨 모드 | `"Filesystem"` |
-| `items[].accessModes` | 접근 모드 | - |
-| `items[].reclaimPolicy` | 회수 정책 | `"Retain"` |
-| `items[].storageClassName` | 스토리지 클래스 | 상위 설정 상속 |
-| `items[].subPath` | EFS 내부 서브 경로 (volumeAttributes.path) | `""` |
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `persistentVolumes.enabled` | Enable PV usage | `false` |
+| `persistentVolumes.fileSystemId` | EFS file system ID (required) | `""` |
+| `persistentVolumes.accessPointId` | EFS access point ID (optional) | `""` |
+| `persistentVolumes.storageClassName` | Default storage class | `"efs-sc"` |
 
 <br/>
 
-### PersistentVolumeClaims 설정
+### PV Items Configuration
 
-| 파라미터 | 설명 | 기본값 |
-|----------|------|--------|
-| `persistentVolumeClaims.enabled` | PVC 사용 여부 | `false` |
-
-<br/>
-
-### PVC Items 설정
-
-| 파라미터 | 설명 | 기본값 |
-|----------|------|--------|
-| `items[].name` | PVC 이름 | - |
-| `items[].accessModes` | 접근 모드 | - |
-| `items[].storageClassName` | 스토리지 클래스 | - |
-| `items[].storage` | 스토리지 용량 | - |
-| `items[].mountPath` | Pod 내 마운트 경로 | - |
-| `items[].subPath` | 추가 서브 경로 (선택) | `""` |
-| `items[].readOnly` | 읽기 전용 여부 | `false` |
-| `items[].selector.volumeName` | 연결할 PV 이름 | - |
-
-## 주의사항
-
-1. EFS 파일 시스템 ID는 반드시 정확해야 합니다.
-2. EFS CSI 드라이버가 설치되어 있어야 합니다.
-3. 네트워크 정책 및 보안 그룹 설정을 확인하세요.
-4. SubPath를 사용할 때 디렉토리가 자동으로 생성됩니다.
-5. 여러 Pod에서 동시에 ReadWriteMany 접근이 가능합니다.
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `items[].name` | PV name | - |
+| `items[].storage` | Storage capacity | - |
+| `items[].volumeMode` | Volume mode | `"Filesystem"` |
+| `items[].accessModes` | Access modes | - |
+| `items[].reclaimPolicy` | Reclaim policy | `"Retain"` |
+| `items[].storageClassName` | Storage class | Inherits from parent |
+| `items[].subPath` | EFS internal sub path (volumeAttributes.path) | `""` |
 
 <br/>
 
-## 트러블슈팅
+### PersistentVolumeClaims Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `persistentVolumeClaims.enabled` | Enable PVC usage | `false` |
 
 <br/>
 
-### Pod가 Pending 상태인 경우
+### PVC Items Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `items[].name` | PVC name | - |
+| `items[].accessModes` | Access modes | - |
+| `items[].storageClassName` | Storage class | - |
+| `items[].storage` | Storage capacity | - |
+| `items[].mountPath` | Mount path within pod | - |
+| `items[].subPath` | Additional sub path (optional) | `""` |
+| `items[].readOnly` | Read-only flag | `false` |
+| `items[].selector.volumeName` | PV name to connect | - |
+
+## Important Notes
+
+1. EFS file system ID must be accurate.
+2. EFS CSI driver must be installed.
+3. Check network policies and security group settings.
+4. Directories are automatically created when using SubPath.
+5. Multiple pods can access ReadWriteMany simultaneously.
+
+<br/>
+
+## Troubleshooting
+
+<br/>
+
+### When Pod is in Pending State
 
 ```bash
 kubectl describe pod <pod-name>
 ```
 
-일반적인 원인:
-- EFS CSI 드라이버 미설치
-- EFS 파일 시스템 ID 오류
-- 네트워크 연결 문제
-- IAM 권한 부족
+Common causes:
+- EFS CSI driver not installed
+- Incorrect EFS file system ID
+- Network connectivity issues
+- Insufficient IAM permissions
 
 <br/>
 
-### 마운트 실패 시
+### Mount Failure
 
 ```bash
 kubectl logs <pod-name>

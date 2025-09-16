@@ -2,25 +2,25 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
+# This will set the replicaset count. More information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 # version: 6b7ccc64
 
-# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
+# This sets the container image. More information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: 0102312312431.dkr.ecr.eu-central-1.amazonaws.com/somaz/game
+  repository: 010xxxxxxxxx.dkr.ecr.eu-central-1.amazonaws.com/somaz/game
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+# This is for the secrets for pulling an image from a private repository. More information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
 # This is to override the chart name.
 nameOverride: ""
 fullnameOverride: ""
 
-# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+# This section builds out the service account. More information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
@@ -50,37 +50,118 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
-# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+# This is for setting up a service. More information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
-  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  # This sets the service type. More information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
-  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
+  # This sets the ports. More information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
   port: 80
   targetPort: 8080
 
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
+# This block is for setting up the ingress. More information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: false
-  className: "alb"  # 또는 사용 중인 ingress controller
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    # Ingress Group - 하나의 ALB 공유
-    alb.ingress.kubernetes.io/group.name: somaz-shared-alb
-    alb.ingress.kubernetes.io/group.order: "10"
-    # External DNS
-    external-dns.prod.kubernetes.io/hostname: prod-game.somaz.somaz.link
-    # ALB 추가 설정
-    alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-    # ACM 인증서 설정
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:0102312312431:certificate/14fsadkla-sdfdsfdsf-dsfadsfds-fdsfasdfds # fix
-  hosts:
-    - host: prod-game.somaz.somaz.link
-      paths:
-        - path: /
-          pathType: Prefix
+  # className: "alb"
+  # annotations:
+  #   alb.ingress.kubernetes.io/scheme: internet-facing
+  #   alb.ingress.kubernetes.io/target-type: ip
+  #   # Ingress Group - Share a single ALB
+  #   alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+  #   alb.ingress.kubernetes.io/group.order: "3" # Configurable 1-1000, lower numbers have higher priority
+  #   # Health check path configuration
+  #   alb.ingress.kubernetes.io/healthcheck-path: /health
+  #   alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+  #   alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+  #   # Multiple version support example: ["0.1.0","0.1.1","0.1.2"]
+  #   alb.ingress.kubernetes.io/conditions.rule-alpha-somaz-game: |
+  #     [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Client-Version","values":["0.1.0"]}}]
+  #   alb.ingress.kubernetes.io/actions.rule-alpha-somaz-game: |
+  #     {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-somaz-game","servicePort":"80","weight":100}]}}
+  #   # Origin domain change (domain that CDN will point to)
+  #   # Additional ALB settings
+  #   alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+  #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]' # Remove HTTP (CDN Origin uses HTTPS only)
+  #   # ACM certificate configuration (for ALB - eu-central-1)
+  #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:010339071704:certificate/14eeaf2b-e34e-416d-a1bb-fbfb18c9f59b
+  #   # CDN optimization settings
+  #   alb.ingress.kubernetes.io/target-group-attributes: |
+  #     deregistration_delay.timeout_seconds=30,
+  #     stickiness.enabled=false
+  #   # Origin identification tag
+  #   alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
+  # hosts:
+  #   - host: alpha-game.somaz.soulssvc.com # Domain that CloudFront forwards with Host header
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  #         useAnnotation: true
+  #         serviceName: rule-alpha-somaz-game
+
+# Review Ingress configuration (for iOS review)
+ingressReview:
+  enabled: false
+
+# Health Ingress configuration
+ingressHealth:
+  enabled: false
+  # className: "alb"
+  # annotations:
+  #   alb.ingress.kubernetes.io/scheme: internet-facing
+  #   alb.ingress.kubernetes.io/target-type: ip
+  #   # Ingress Group - Share a single ALB
+  #   alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+  #   alb.ingress.kubernetes.io/group.order: "1" # High priority (takes precedence over existing)
+  #   # Health check access (no header conditions)
+  #   alb.ingress.kubernetes.io/conditions.rule-alpha-health: |
+  #     [{"field":"path-pattern","pathPatternConfig":{"values":["/health*"]}}]
+  #   alb.ingress.kubernetes.io/actions.rule-alpha-health: |
+  #     {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-somaz-game","servicePort":"80","weight":100}]}}
+  #   # Common ALB settings
+  #   alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+  #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+  #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:010339071704:certificate/14eeaf2b-e34e-416d-a1bb-fbfb18c9f59b
+  #   alb.ingress.kubernetes.io/target-group-attributes: |
+  #     deregistration_delay.timeout_seconds=30,
+  #     stickiness.enabled=false
+  #   alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
+  # hosts:
+  #   - host: alpha-game.somaz.soulssvc.com
+  #     paths:
+  #       - path: /health
+  #         pathType: Prefix
+  #         useAnnotation: true
+  #         serviceName: rule-alpha-health
+
+# API Docs Ingress configuration
+ingressApiDocs:
+  enabled: false
+  # className: "alb"
+  # annotations:
+  #   alb.ingress.kubernetes.io/scheme: internet-facing
+  #   alb.ingress.kubernetes.io/target-type: ip
+  #   # Ingress Group - Share a single ALB
+  #   alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+  #   alb.ingress.kubernetes.io/group.order: "2" # Second priority
+  #   # API docs access (no header conditions)
+  #   alb.ingress.kubernetes.io/conditions.rule-alpha-apidocs: |
+  #     [{"field":"path-pattern","pathPatternConfig":{"values":["/api-docs*"]}}]
+  #   alb.ingress.kubernetes.io/actions.rule-alpha-apidocs: |
+  #     {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-somaz-game","servicePort":"80","weight":100}]}}
+  #   # Common ALB settings
+  #   alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+  #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+  #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:010339071704:certificate/14eeaf2b-e34e-416d-a1bb-fbfb18c9f59b
+  #   alb.ingress.kubernetes.io/target-group-attributes: |
+  #     deregistration_delay.timeout_seconds=30,
+  #     stickiness.enabled=false
+  #   alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
+  # hosts:
+  #   - host: alpha-game.somaz.soulssvc.com
+  #     paths:
+  #       - path: /api-docs
+  #         pathType: Prefix
+  #         useAnnotation: true
+  #         serviceName: rule-alpha-apidocs
 
 revisionHistoryLimit: 1
 
@@ -89,12 +170,12 @@ resources: {}
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # prod 테스트 환경 - 100명 동시 접속자, 2 replica 기준
+  # Alpha test environment - 100 concurrent users, 2 replica baseline
   # limits:
   #   cpu: 1000m      # 1 CPU core
   #   memory: 2Gi     # 2GB RAM
   # requests:
-  #   cpu: 100m       # 0.5 CPU core
+  #   cpu: 100m       # 0.1 CPU core
   #   memory: 1Gi     # 1GB RAM
 
 strategy:
@@ -105,7 +186,7 @@ strategy:
       maxSurge: 1 # Maximum number of pods that can be created above the desired number of pods
       maxUnavailable: "50%" # Maximum number of unavailable pods during the update
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+# This is to setup the liveness and readiness probes. More information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 # livenessProbe: {}
 livenessProbe:
   httpGet:
@@ -117,7 +198,7 @@ readinessProbe:
     path: /health
     port: http
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# This section is for setting up autoscaling. More information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -129,7 +210,7 @@ rbac:
   enabled: false
 
 nodeSelector: {}
-  # eks.amazonaws.com/nodegroup: TestNodegroupBaseNodeGroupA-O1fZAmuND3P3
+  # eks.amazonaws.com/nodegroup: SomazNodeGroup-dfdafsd
 
 tolerations: []
 
@@ -141,50 +222,57 @@ envConfig: {}
 configs:
   enabled: false
   items:
-    - name: prod-game-app-config
+    - name: alpha-game-app-config
       datas:
-        NODE_ENV: prod
+        NODE_ENV: alpha
         SERVER_PORT: 8080
 
-        # pub/sup Redis
-        REDIS_DB_HOST: prod-somaz-redis.somaz.svc.cluster.local
+        # Pub/Sub Redis configuration
+        REDIS_DB_HOST: alpha-somaz-redis.somaz.svc.cluster.local
         REDIS_DB_PORT: 6379
         REDIS_DB_NUMBER: 0
 
-        # Session Redis
+        # Session Redis configuration
         REDDIS_SESSION_DB_HOST: somaz-redis-cluster-client.somaz.svc.cluster.local
         REDDIS_SESSION_DB_PORT: 6379
         REDDIS_SESSION_DB_NUMBER: 0
         REDDIS_SESSION_DB_IS_CLUSTER_MODE: true
 
-        # User Level Lock redis
+        # User Level Lock Redis configuration
         USER_LEVEL_LOCK_ENABLED: true
         REDIS_RED_LOCK_DB_HOST: somaz-redis-cluster-client.somaz.svc.cluster.local
         REDIS_RED_LOCK_DB_PORT: 6379
         REDIS_RED_LOCK_DB_NUMBER: 0
         REDIS_RED_LOCK_DB_IS_CLUSTER_MODE: true
 
+        # Common database configuration
         COMMON_DB_TYPE: mysql
-        COMMON_DB_HOST: prod-somaz-rds-aurora.cluster-caquexxxxxxxx.eu-central-1.rds.amazonaws.com
-        # COMMON_DB_HOST: fantome-cluster.somaz.us
+        COMMON_DB_HOST: alpha-somaz-rds-aurora.cluster-caquecswrdlu.eu-central-1.rds.amazonaws.com
+        # COMMON_DB_HOST: fantome-cluster.concrit.us # Alternative host for testing
         COMMON_DB_PORT: 3306
-        # COMMON_DB_PORT: 30636
+        # COMMON_DB_PORT: 30636 # Alternative port for testing
         COMMON_DB_NAME: common
-        COMMON_DB_DATABASE: prod_common
+        COMMON_DB_DATABASE: alpha_common
         COMMON_DB_USER: projectm
-        COMMON_DB_PASSWORD: somaz123!
+        COMMON_DB_PASSWORD: concrit123!
+        
+        # Game database configuration
         GAME_DB_TYPE: mysql
-        GAME_DB_HOST: prod-somaz-rds-aurora.cluster-caquexxxxxxxx.eu-central-1.rds.amazonaws.com
-        # GAME_DB_HOST: fantome-cluster.somaz.us
+        GAME_DB_HOST: alpha-somaz-rds-aurora.cluster-caquecswrdlu.eu-central-1.rds.amazonaws.com
+        # GAME_DB_HOST: fantome-cluster.concrit.us # Alternative host for testing
         GAME_DB_PORT: 3306
-        # GAME_DB_PORT: 30636
+        # GAME_DB_PORT: 30636 # Alternative port for testing
         GAME_DB_NAME: game
-        GAME_DB_DATABASE: prod_game
+        GAME_DB_DATABASE: alpha_game
         GAME_DB_USER: projectm
-        GAME_DB_PASSWORD: somaz123!
+        GAME_DB_PASSWORD: concrit123!
+        
+        # Application feature flags
         CHECK_VERSION: false
         CHECK_REQUEST_SEQUENCE: false
-        BATTLE_SERVER_URL: http://prod-somaz-battle.somaz.svc.cluster.local # <svc.name>.<namespace>.svc.<cluster_dns> 현재 cluster dns = cluster.local
+        
+        # Battle server URL - <svc.name>.<namespace>.svc.<cluster_dns> (current cluster dns = cluster.local)
+        BATTLE_SERVER_URL: http://alpha-somaz-battle.somaz.svc.cluster.local
 
 # Additional volumes on the output Deployment definition.
 volumes: []
@@ -199,32 +287,33 @@ volumeMounts: []
 #   mountPath: "/etc/foo"
 #   readOnly: true
 
-# EFS 관련 설정
+# EFS related configuration
 efs:
   persistentVolumes:
     enabled: false
+    # Example persistent volume configurations with Terraform-generated Access Points
     # items:
-    #   - name: "prod-somaz-game-app-data-pv"
-    #     fileSystemId: "fs-0d52bedsafkdjsalkfjds"
-    #     accessPointId: "fsap-046adsfsdafsdaf"  # Terraform으로 생성된 Access Point ID
+    #   - name: "alpha-somaz-game-app-data-pv"
+    #     fileSystemId: "fs-0d52bef3161abc607"
+    #     accessPointId: "fsap-0468107d568d49033"  # Access Point ID created by Terraform
     #     storage: "5Gi"
     #     volumeMode: Filesystem
     #     accessModes:
     #       - ReadWriteMany
     #     reclaimPolicy: Retain
     #     storageClassName: "efs-sc"
-    #   - name: "prod-somaz-game-app-logs-pv"
-    #     fileSystemId: "fs-0d52bedsafkdjsalkfjds"
-    #     accessPointId: "fsap-0bfsadfasdfsdaf"  # Terraform으로 생성된 Access Point ID
+    #   - name: "alpha-somaz-game-app-logs-pv"
+    #     fileSystemId: "fs-0d52bef3161abc607"
+    #     accessPointId: "fsap-0bf56b84ef153faaa"  # Access Point ID created by Terraform
     #     storage: "5Gi"
     #     volumeMode: Filesystem
     #     accessModes:
     #       - ReadWriteMany
     #     reclaimPolicy: Retain
     #     storageClassName: "efs-sc"
-    #   - name: "prod-somaz-game-app-version-pv"
-    #     fileSystemId: "fs-0d52bedsafkdjsalkfjds"
-    #     accessPointId: "fsap-04asdfsdafsdafsdafd"  # Terraform으로 생성된 Access Point ID
+    #   - name: "alpha-somaz-game-app-version-pv"
+    #     fileSystemId: "fs-0d52bef3161abc607"
+    #     accessPointId: "fsap-043513196d175203e"  # Access Point ID created by Terraform
     #     storage: "5Gi"
     #     volumeMode: Filesystem
     #     accessModes:
@@ -234,28 +323,29 @@ efs:
 
   persistentVolumeClaims:
     enabled: false
+    # Example persistent volume claim configurations with mount paths
     # items:
-    #   - name: "prod-somaz-game-app-data-pvc"
+    #   - name: "alpha-somaz-game-app-data-pvc"
     #     accessModes:
     #       - ReadWriteMany
     #     storageClassName: "efs-sc"
     #     storage: "5Gi"
-    #     mountPath: "/app/data"
+    #     mountPath: "/app/data"  # Application data directory
     #     selector:
-    #       volumeName: "prod-somaz-game-app-data-pv"
-    #   - name: "prod-somaz-game-app-logs-pvc"
+    #       volumeName: "alpha-somaz-game-app-data-pv"
+    #   - name: "alpha-somaz-game-app-logs-pvc"
     #     accessModes:
     #       - ReadWriteMany
     #     storageClassName: "efs-sc"
     #     storage: "5Gi"
-    #     mountPath: "/app/logs"
+    #     mountPath: "/app/logs"  # Application logs directory
     #     selector:
-    #       volumeName: "prod-somaz-game-app-logs-pv"
-    #   - name: "prod-somaz-game-app-version-pvc"
+    #       volumeName: "alpha-somaz-game-app-logs-pv"
+    #   - name: "alpha-somaz-game-app-version-pvc"
     #     accessModes:
     #       - ReadWriteMany
     #     storageClassName: "efs-sc"
     #     storage: "5Gi"
-    #     mountPath: "/app/version"
+    #     mountPath: "/app/version"  # Application version files directory
     #     selector:
-    #       volumeName: "prod-somaz-game-app-version-pv"
+    #       volumeName: "alpha-somaz-game-app-version-pv"

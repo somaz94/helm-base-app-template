@@ -6,49 +6,20 @@ A base Helm chart template for deploying applications to Kubernetes, using ArgoC
 
 ```
 helm-base-app-template
-├── LICENSE
-├── README.md
 ├── appsets
-│   ├── dev-applicationset.yaml
-│   ├── prod-applicationset.yaml
-│   └── qa-applicationset.yaml
 ├── charts
-│   └── base
-│       ├── Chart.yaml
-│       ├── base.values.yaml
-│       ├── templates
-│       │   ├── NOTES.txt
-│       │   ├── _helpers.tpl
-│       │   ├── cert-cronjob.yaml
-│       │   ├── certificate.yaml
-│       │   ├── configmap.yaml
-│       │   ├── deployment.yaml
-│       │   ├── hpa.yaml
-│       │   ├── imagePullSecret.yaml
-│       │   ├── ingress.yaml
-│       │   ├── pv.yaml
-│       │   ├── pvc.yaml
-│       │   ├── service.yaml
-│       │   └── serviceaccount.yaml
-│       └── values.yaml
+│   ├── base
+│   │   └── templates
+│   └── base-aws
+│       └── templates
 └── values
     └── somaz
         ├── admin
-        │   ├── dev1.values.yaml
-        │   ├── prod-a.values.yaml
-        │   └── qa1.values.yaml
         ├── auth
-        │   ├── dev1.values.yaml
-        │   ├── prod-a.values.yaml
-        │   └── qa1.values.yaml
         ├── backend
-        │   ├── dev1.values.yaml
-        │   ├── prod-a.values.yaml
-        │   └── qa1.values.yaml
         └── batch
-            ├── dev1.values.yaml
-            ├── prod-a.values.yaml
-            └── qa1.values.yaml
+
+13 directories
 ```
 
 ## Features

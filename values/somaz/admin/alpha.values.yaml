@@ -1,0 +1,242 @@
+# Default values for base-aws.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
+replicaCount: 1
+# version: 1a2b3c4d
+
+# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
+image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/somaz/admin
+  # This sets the pull policy for images.
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "9e87f654"
+
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+# This is to override the chart name.
+nameOverride: "alpha-somaz-admin"
+fullnameOverride: "alpha-somaz-admin"
+
+# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# This is for setting Kubernetes Annotations to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+# This is for setting Kubernetes Labels to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+podSecurityContext:
+  {}
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+service:
+  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  type: ClusterIP
+  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
+  port: 80
+  targetPort: 3000
+
+# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  className: "alb" # or ingress controller you are using
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # Ingress Group - Share single ALB
+    alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+    alb.ingress.kubernetes.io/group.order: "11" # 1-1000 configurable, lower number has higher priority
+    # Health check path configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    # External DNS
+    external-dns.somaz.kubernetes.io/hostname: alpha-admin.somaz.example.com
+    # Additional ALB settings
+    alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # ACM certificate settings
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
+  hosts:
+    - host: alpha-admin.somaz.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Review Ingress configuration (for app store review)
+ingressReview:
+  enabled: false
+
+# Health check dedicated ingress
+ingressHealth:
+  enabled: false # Change to true only when needed
+
+# API documentation dedicated ingress
+ingressApiDocs:
+  enabled: false # Change to true only when needed
+
+revisionHistoryLimit: 1
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # Alpha test environment - 100 concurrent users, 2 replica baseline
+  limits:
+    cpu: 1000m # 1 CPU core
+    memory: 2Gi # 2GB RAM
+  requests:
+    cpu: 100m # 0.5 CPU core
+    memory: 1Gi # 1GB RAM
+
+strategy:
+  enabled: false
+  config:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1 # Maximum number of pods that can be created above the desired number of pods
+      maxUnavailable: "50%" # Maximum number of unavailable pods during the update
+
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+# livenessProbe: {}
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+# readinessProbe: {}
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+rbac:
+  enabled: false
+
+nodeSelector:
+  eks.amazonaws.com/nodegroup: ExampleNodegroupBaseNodeGroupA-XY9ZAmuND3P3
+
+tolerations: []
+
+affinity: {}
+
+envConfig:
+  {}
+  # NODE_ENV: base
+
+configs:
+  enabled: true
+  items:
+    - name: alpha-admin-app-config
+      datas:
+        NODE_ENV: alpha
+        SERVER_PORT: 3000
+
+        # pub/sub Redis
+        REDIS_HOST: alpha-somaz-redis.somaz.svc.cluster.local
+        REDIS_PORT: 6379
+        REDIS_NUMBER: 0
+        COMMON_DB_TYPE: mysql
+        COMMON_DB_HOST: alpha-somaz-rds-aurora.cluster-example123.us-east-1.rds.amazonaws.com
+        COMMON_DB_PORT: 3306
+        COMMON_DB_NAME: common
+        COMMON_DB_DATABASE: alpha_common
+        COMMON_DB_USER: dbuser
+        COMMON_DB_PASSWORD: example123!
+        GAME_DB_TYPE: mysql
+        GAME_DB_HOST: alpha-somaz-rds-aurora.cluster-example123.us-east-1.rds.amazonaws.com
+        GAME_DB_PORT: 3306
+        GAME_DB_NAME: game
+        GAME_DB_DATABASE: alpha_game
+        GAME_DB_USER: dbuser
+        GAME_DB_PASSWORD: example123!
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+# EFS related configuration
+efs:
+  persistentVolumes:
+    enabled: true
+    items:
+      - name: "alpha-somaz-admin-app-data-pv"
+        fileSystemId: "fs-0example123abc456"
+        accessPointId: "fsap-0example789def012" # Access Point ID created by Terraform
+        storage: "5Gi"
+        volumeMode: Filesystem
+        accessModes:
+          - ReadWriteMany
+        reclaimPolicy: Retain
+        storageClassName: "efs-sc"
+      - name: "alpha-somaz-admin-app-version-pv"
+        fileSystemId: "fs-0example123abc456"
+        accessPointId: "fsap-0example012jkl345" # Access Point ID created by Terraform
+        storage: "5Gi"
+        volumeMode: Filesystem
+        accessModes:
+          - ReadWriteMany
+        reclaimPolicy: Retain
+        storageClassName: "efs-sc"
+
+  persistentVolumeClaims:
+    enabled: true
+    items:
+      - name: "alpha-somaz-admin-app-data-pvc"
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "efs-sc"
+        storage: "5Gi"
+        mountPath: "/app/data"
+        selector:
+          volumeName: "alpha-somaz-admin-app-data-pv"
+      - name: "alpha-somaz-admin-app-version-pvc"
+        accessModes:
+          - ReadWriteMany
+        storageClassName: "efs-sc"
+        storage: "5Gi"
+        mountPath: "/app/version"
+        selector:
+          volumeName: "alpha-somaz-admin-app-version-pv"

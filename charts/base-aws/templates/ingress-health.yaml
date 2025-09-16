@@ -1,29 +1,21 @@
-{{- if .Values.ingress.enabled -}}
+{{- if .Values.ingressHealth.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "base-aws.fullname" . }}
+  name: {{ include "base-aws.fullname" . }}-health
   labels:
     {{- include "base-aws.labels" . | nindent 4 }}
+  {{- with .Values.ingressHealth.annotations }}
   annotations:
-    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- if and (.Values.clientVersion) (.Values.clientVersion.main) (.Values.ruleNames) (.Values.ruleNames.main) (.Values.serviceNames) (.Values.serviceNames.main) }}
-    {{- if gt (len .Values.clientVersion.main) 0 }}
-    alb.ingress.kubernetes.io/conditions.{{ .Values.ruleNames.main }}: |
-      [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Client-Version","values":{{ toJson .Values.clientVersion.main }}}}]
-    alb.ingress.kubernetes.io/actions.{{ .Values.ruleNames.main }}: |
-      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"{{ .Values.serviceNames.main }}","servicePort":"80","weight":100}]}}
-    {{- end }}
-    {{- end }}
+  {{- end }}
 spec:
-  {{- with .Values.ingress.className }}
+  {{- with .Values.ingressHealth.className }}
   ingressClassName: {{ . }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if .Values.ingressHealth.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range .Values.ingressHealth.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -32,7 +24,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.ingressHealth.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:

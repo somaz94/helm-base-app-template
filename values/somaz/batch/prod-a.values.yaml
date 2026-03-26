@@ -3,7 +3,7 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: harbor.somaz.link/somaz/batch
+  repository: harbor.somaz.example.com/somaz/batch
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
@@ -11,9 +11,9 @@ image:
 
 imageCredentials:
   enabled: true
-  registry: https://harbor.somaz.link
-  username: robot$gitlab
-  password: 8xxxxxxxxxxxxxxxxxxxIxxxx
+  registry: https://harbor.somaz.example.com
+  username: robot$example
+  password: exampleRobotTokenXXXXXXXXXX
   name: harbor-robot-secret
 
 # This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -71,14 +71,14 @@ ingress:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"   # Disable SSL redirection
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"      # Disable SSL passthrough
   hosts:
-    - host: prod-a-batch.pm.somaz.link
+    - host: prod-a-batch.somaz.example.com
       paths:
         - path: /
           pathType: ImplementationSpecific
   tls: 
    - secretName: prod-a-somaz-batch-tls
      hosts:
-       - prod-a-batch.pm.somaz.link
+       - prod-a-batch.somaz.example.com
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 
@@ -135,15 +135,15 @@ configs:
       datas:
         NODE_ENV: prod-a
         SERVER_PORT: 3000
-        REDIS_DB_HOST: prod-a-cluster.somaz.link
+        REDIS_DB_HOST: prod-a-cluster.somaz.example.com
         REDIS_DB_PORT: 30479
         COMMON_DB_TYPE: mysql
-        COMMON_DB_HOST: prod-a-cluster.somaz.link
+        COMMON_DB_HOST: prod-a-cluster.somaz.example.com
         COMMON_DB_PORT: 30636
         COMMON_DB_NAME: common
         COMMON_DB_DATABASE: prod-a_common
-        COMMON_DB_USER: somaz
-        COMMON_DB_PASSWORD: somaz123!
+        COMMON_DB_USER: dbuser
+        COMMON_DB_PASSWORD: examplePassword123!
 
 persistentVolumes:
   enabled: true
@@ -156,7 +156,7 @@ persistentVolumes:
       reclaimPolicy: Retain
       storageClassName: nfs-client-nopath
       path: /volume1/nfs/somaz/prod-a/server/data
-      server: 10.10.10.5
+      server: 10.0.0.5
     - name: prod-a-somaz-batch-app-version-pv
       storage: 5Gi
       volumeMode: Filesystem
@@ -165,7 +165,7 @@ persistentVolumes:
       reclaimPolicy: Retain
       storageClassName: nfs-client-nopath
       path: /volume1/nfs/somaz/prod-a/server/version
-      server: 10.10.10.5
+      server: 10.0.0.5
 
 persistentVolumeClaims:
   enabled: true
@@ -197,11 +197,11 @@ extraVolumeMounts: []
 certificate:
   enabled: true
   secretName: prod-a-somaz-batch-tls
-  commonName: prod-a-batch.pm.somaz.link
+  commonName: prod-a-batch.somaz.example.com
   duration: 2160h0m0s # 90d
   renewBefore: 720h0m0s # 30d
   dnsNames:
-    - prod-a-batch.pm.somaz.link
+    - prod-a-batch.somaz.example.com
   issuerName: route53-issuer # issuer name
   issuerKind: ClusterIssuer # issuer kind
   

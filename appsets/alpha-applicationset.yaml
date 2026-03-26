@@ -9,12 +9,12 @@ spec:
           - list:
               elements:
                 - cluster: somaz-aws-clutser
-                  url: https://A1B2C3D4E5F6789012345678901234567.gr7.eu-central-1.eks.amazonaws.com # your cluster url
+                  url: https://ABCDEF1234567890.gr7.us-east-1.eks.amazonaws.com # your cluster url
                   values:
                     project: somaz
                     environment: alpha
           - git:
-              repoURL: git@gitlab.concrit.us:server/argocd-applicationset.git
+              repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git
               revision: HEAD
               directories:
                 - path: values/somaz/*
@@ -26,7 +26,7 @@ spec:
     spec:
       project: '{{values.project}}'
       source:
-        repoURL: git@gitlab.somaz.link:server/argocd-applicationset.git
+        repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git
         targetRevision: HEAD
         path: charts/base
         helm:

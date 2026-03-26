@@ -3,7 +3,7 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: harbor.somaz.link/somaz/backend
+  repository: harbor.somaz.example.com/somaz/backend
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
@@ -11,9 +11,9 @@ image:
 
 imageCredentials:
   enabled: true
-  registry: https://harbor.somaz.link
-  username: robot$gitlab
-  password: 8xxxxxxxxxxxxxxxxxxxIxxxx
+  registry: https://harbor.somaz.example.com
+  username: robot$example
+  password: exampleRobotTokenXXXXXXXXXX
   name: harbor-robot-secret
 
 # This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -71,7 +71,7 @@ ingress:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"   # Disable SSL redirection
     nginx.ingress.kubernetes.io/ssl-passthrough: "false"      # Disable SSL passthrough
   hosts:
-    - host: dev1-backend.pm.somaz.link
+    - host: dev1-backend.somaz.example.com
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -135,15 +135,15 @@ configs:
       datas:
         NODE_ENV: dev1
         SERVER_PORT: 3000
-        REDIS_DB_HOST: dev1-cluster.somaz.link
+        REDIS_DB_HOST: dev1-cluster.somaz.example.com
         REDIS_DB_PORT: 30479
         COMMON_DB_TYPE: mysql
-        COMMON_DB_HOST: dev1-cluster.somaz.link
+        COMMON_DB_HOST: dev1-cluster.somaz.example.com
         COMMON_DB_PORT: 30636
         COMMON_DB_NAME: common
         COMMON_DB_DATABASE: dev1_common
-        COMMON_DB_USER: somaz
-        COMMON_DB_PASSWORD: somaz123!
+        COMMON_DB_USER: dbuser
+        COMMON_DB_PASSWORD: examplePassword123!
 
 persistentVolumes:
   enabled: true
@@ -156,7 +156,7 @@ persistentVolumes:
       reclaimPolicy: Retain
       storageClassName: nfs-client-nopath
       path: /volume1/nfs/somaz/dev1/server/data
-      server: 10.10.10.5
+      server: 10.0.0.5
     - name: dev1-somaz-backend-app-version-pv
       storage: 5Gi
       volumeMode: Filesystem
@@ -165,7 +165,7 @@ persistentVolumes:
       reclaimPolicy: Retain
       storageClassName: nfs-client-nopath
       path: /volume1/nfs/somaz/dev1/server/version
-      server: 10.10.10.5
+      server: 10.0.0.5
 
 persistentVolumeClaims:
   enabled: true

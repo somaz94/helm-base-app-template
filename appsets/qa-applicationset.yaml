@@ -9,17 +9,17 @@ spec:
           - list:
               elements:
                 - cluster: somaz-qa-cluster # your cluster name
-                  url: https://10.10.10.50:6443  # your cluster url
+                  url: https://10.0.0.10:6443  # your cluster url
                   values:
                     project: somaz
                     environment: qa1
                 - cluster: somaz-qa-cluster # your cluster name
-                  url: https://10.10.10.50:6443  # your cluster url
+                  url: https://10.0.0.10:6443  # your cluster url
                   values:
                     project: somaz
                     environment: qa2
           - git:
-              repoURL: git@gitlab.somaz.link:server/argocd-applicationset.git # your source repo
+              repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git # your source repo
               revision: HEAD
               directories:
                 - path: values/somaz/*
@@ -29,7 +29,7 @@ spec:
     spec:
       project: '{{values.project}}'
       source:
-        repoURL: git@gitlab.somaz.link:server/argocd-applicationset.git
+        repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git
         targetRevision: HEAD
         path: charts/base
         helm:

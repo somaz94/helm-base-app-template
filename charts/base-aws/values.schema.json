@@ -24,16 +24,6 @@
             },
             "required": ["repository", "pullPolicy"]
         },
-        "imageCredentials": {
-            "type": "object",
-            "properties": {
-                "enabled": { "type": "boolean" },
-                "registry": { "type": "string" },
-                "username": { "type": "string" },
-                "password": { "type": "string" },
-                "name": { "type": "string" }
-            }
-        },
         "imagePullSecrets": {
             "type": "array",
             "items": {
@@ -76,7 +66,6 @@
             "type": "object",
             "properties": {
                 "enabled": { "type": "boolean" },
-                "name": { "type": "string" },
                 "className": { "type": "string" },
                 "annotations": { "type": "object" },
                 "hosts": {
@@ -94,7 +83,9 @@
                                         "pathType": {
                                             "type": "string",
                                             "enum": ["Exact", "Prefix", "ImplementationSpecific"]
-                                        }
+                                        },
+                                        "useAnnotation": { "type": "boolean" },
+                                        "serviceName": { "type": "string" }
                                     },
                                     "required": ["path", "pathType"]
                                 }
@@ -104,6 +95,36 @@
                     }
                 },
                 "tls": { "type": "array" }
+            }
+        },
+        "ingressReview": {
+            "type": "object",
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "className": { "type": "string" },
+                "annotations": { "type": "object" },
+                "hosts": { "type": "array" },
+                "clientVersion": { "type": "string" },
+                "ruleNames": { "type": "array", "items": { "type": "string" } },
+                "serviceNames": { "type": "array", "items": { "type": "string" } }
+            }
+        },
+        "ingressHealth": {
+            "type": "object",
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "className": { "type": "string" },
+                "annotations": { "type": "object" },
+                "hosts": { "type": "array" }
+            }
+        },
+        "ingressApiDocs": {
+            "type": "object",
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "className": { "type": "string" },
+                "annotations": { "type": "object" },
+                "hosts": { "type": "array" }
             }
         },
         "livenessProbe": { "type": "object" },
@@ -144,8 +165,7 @@
         "rbac": {
             "type": "object",
             "properties": {
-                "enabled": { "type": "boolean" },
-                "serviceAccountName": { "type": "string" }
+                "enabled": { "type": "boolean" }
             }
         },
         "nodeSelector": { "type": "object" },
@@ -173,134 +193,76 @@
                 }
             }
         },
-        "initContainers": {
-            "type": "object",
-            "properties": {
-                "enabled": { "type": "boolean" },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": { "type": "string" },
-                            "image": { "type": "string" },
-                            "imagePullPolicy": {
-                                "type": "string",
-                                "enum": ["Always", "IfNotPresent", "Never"]
-                            },
-                            "command": { "type": "array", "items": { "type": "string" } },
-                            "args": { "type": "array", "items": { "type": "string" } },
-                            "env": { "type": "array" },
-                            "envFrom": { "type": "array" },
-                            "volumeMounts": { "type": "array" },
-                            "resources": { "type": "object" },
-                            "securityContext": { "type": "object" }
-                        },
-                        "required": ["name", "image"]
-                    }
-                }
-            }
+        "volumes": {
+            "type": "array",
+            "items": { "type": "object" }
         },
-        "emptyDirVolumes": {
-            "type": "object",
-            "properties": {
-                "enabled": { "type": "boolean" },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": { "type": "string" },
-                            "mountPath": { "type": "string" },
-                            "readOnly": { "type": "boolean" },
-                            "sizeLimit": { "type": "string" },
-                            "medium": { "type": "string" }
-                        },
-                        "required": ["name", "mountPath"]
-                    }
-                }
-            }
+        "volumeMounts": {
+            "type": "array",
+            "items": { "type": "object" }
         },
-        "persistentVolumes": {
+        "efs": {
             "type": "object",
             "properties": {
-                "enabled": { "type": "boolean" },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": { "type": "string" },
-                            "storage": { "type": "string" },
-                            "volumeMode": { "type": "string" },
-                            "accessModes": {
-                                "type": "array",
-                                "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
-                            },
-                            "reclaimPolicy": {
-                                "type": "string",
-                                "enum": ["Retain", "Delete", "Recycle"]
-                            },
-                            "storageClassName": { "type": "string" },
-                            "path": { "type": "string" },
-                            "server": { "type": "string" }
-                        },
-                        "required": ["name", "storage", "accessModes", "storageClassName", "path", "server"]
-                    }
-                }
-            }
-        },
-        "persistentVolumeClaims": {
-            "type": "object",
-            "properties": {
-                "enabled": { "type": "boolean" },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": { "type": "string" },
-                            "accessModes": {
-                                "type": "array",
-                                "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
-                            },
-                            "storageClassName": { "type": "string" },
-                            "storage": { "type": "string" },
-                            "mountPath": { "type": "string" },
-                            "selector": {
+                "persistentVolumes": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": { "type": "boolean" },
+                        "items": {
+                            "type": "array",
+                            "items": {
                                 "type": "object",
                                 "properties": {
-                                    "volumeName": { "type": "string" }
-                                }
+                                    "name": { "type": "string" },
+                                    "fileSystemId": { "type": "string" },
+                                    "accessPointId": { "type": "string" },
+                                    "storage": { "type": "string" },
+                                    "volumeMode": { "type": "string" },
+                                    "accessModes": {
+                                        "type": "array",
+                                        "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
+                                    },
+                                    "reclaimPolicy": {
+                                        "type": "string",
+                                        "enum": ["Retain", "Delete", "Recycle"]
+                                    },
+                                    "storageClassName": { "type": "string" }
+                                },
+                                "required": ["name", "fileSystemId", "storage", "accessModes", "storageClassName"]
                             }
-                        },
-                        "required": ["name", "accessModes", "storageClassName", "storage", "mountPath"]
+                        }
+                    }
+                },
+                "persistentVolumeClaims": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": { "type": "boolean" },
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": { "type": "string" },
+                                    "accessModes": {
+                                        "type": "array",
+                                        "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
+                                    },
+                                    "storageClassName": { "type": "string" },
+                                    "storage": { "type": "string" },
+                                    "mountPath": { "type": "string" },
+                                    "readOnly": { "type": "boolean" },
+                                    "selector": {
+                                        "type": "object",
+                                        "properties": {
+                                            "volumeName": { "type": "string" }
+                                        }
+                                    }
+                                },
+                                "required": ["name", "accessModes", "storageClassName", "storage", "mountPath"]
+                            }
+                        }
                     }
                 }
-            }
-        },
-        "extraVolumes": { "type": "array" },
-        "extraVolumeMounts": { "type": "array" },
-        "certificate": {
-            "type": "object",
-            "properties": {
-                "enabled": { "type": "boolean" },
-                "secretName": { "type": "string" },
-                "commonName": { "type": "string" },
-                "duration": { "type": "string" },
-                "renewBefore": { "type": "string" },
-                "dnsNames": { "type": "array", "items": { "type": "string" } },
-                "issuerName": { "type": "string" },
-                "issuerKind": { "type": "string" }
-            }
-        },
-        "certCleanup": {
-            "type": "object",
-            "properties": {
-                "enabled": { "type": "boolean" },
-                "CronJobName": { "type": "string" },
-                "olderThanDays": { "type": "integer", "minimum": 1 },
-                "YesterDays": { "type": "integer", "minimum": 1 }
             }
         }
     },

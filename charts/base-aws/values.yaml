@@ -227,14 +227,43 @@ strategy:
 # =============================================================================
 # Probes
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+#
+# Probe order: Startup → (Liveness + Readiness in parallel)
+# - Startup:   Blocks Liveness/Readiness until app is fully started (prevents restart loops during slow init like EFS mount)
+# - Liveness:  Restarts container on failure (detects deadlocks, unresponsive processes)
+# - Readiness: Removes Pod from Service endpoints on failure (blocks traffic without restart)
+#
+# Best practices:
+# - Separate /healthz (process alive) and /ready (external deps) endpoints
+# - Do NOT add external dependencies (DB, Redis) to Liveness — use Readiness instead
+# - Startup failureThreshold × periodSeconds must exceed max app startup time
 # =============================================================================
+# -- Startup probe configuration (empty = no probe)
+# Prevents Liveness/Readiness from running until app is fully initialized
+startupProbe: {}
+  # httpGet:
+  #   path: /health
+  #   port: http
+  # initialDelaySeconds: 5   # Wait before first probe after container start
+  # periodSeconds: 5          # Interval between probes
+  # failureThreshold: 30      # Consecutive failures before container restart (5s × 30 = max 150s wait)
+  # timeoutSeconds: 3          # Max wait for single probe response
+
 # -- Liveness probe configuration (set to empty {} if app has no health endpoint)
+# initialDelaySeconds: Wait after Startup Probe succeeds before first liveness check
+# periodSeconds: Interval between probes (lower frequency = less overhead)
+# timeoutSeconds: Max wait for single probe response
+# failureThreshold: Consecutive failures → container restart
 livenessProbe: {}
   # httpGet:
   #   path: /health
   #   port: http
 
 # -- Readiness probe configuration (set to empty {} if app has no health endpoint)
+# initialDelaySeconds: Start checking readiness quickly after Startup Probe
+# periodSeconds: Interval between probes (higher frequency for traffic-sensitive routing)
+# timeoutSeconds: Max wait for single probe response
+# failureThreshold: Consecutive failures → remove Pod from Service Endpoint (no restart)
 readinessProbe: {}
   # httpGet:
   #   path: /health

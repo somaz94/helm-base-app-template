@@ -127,6 +127,7 @@
                 "hosts": { "type": "array" }
             }
         },
+        "startupProbe": { "type": "object" },
         "livenessProbe": { "type": "object" },
         "readinessProbe": { "type": "object" },
         "resources": { "type": "object" },

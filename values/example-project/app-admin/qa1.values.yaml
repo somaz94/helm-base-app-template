@@ -1,27 +1,32 @@
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
+# version: f3e1a5f6
+
+# Environment setting - automatically injects ENVIRONMENT variable to both main container and init containers
+# Example: environment: "staging" will add ENVIRONMENT="staging" to container env vars
+environment: "qa" 
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: harbor.somaz.example.com/somaz/auth
+  repository: harbor.example.com/example-project/app-admin
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "44c37ad0"
+  tag: "00dd9fcf"
 
 imageCredentials:
-  enabled: true
-  registry: https://harbor.somaz.example.com
+  enabled: false
+  registry: https://harbor.example.com
   username: robot$example
-  password: exampleRobotTokenXXXXXXXXXX
+  password: <HARBOR_ROBOT_TOKEN>
   name: harbor-robot-secret
 
 # This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: 
   - name: harbor-robot-secret
 # This is to override the chart name.
-nameOverride: ""
-fullnameOverride: "dev1-somaz-auth"
+nameOverride: "qa-example-project-app-admin"
+fullnameOverride: "qa-example-project-app-admin"
 
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
@@ -61,17 +66,22 @@ service:
   port: 80
   targetPort: 3000
 
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
+# Ingress disabled after Phase 6 cutover (2026-04-17) — NGF owns .67 via ngf-public-i Gateway.
+# Legacy fields retained for rollback reference; re-enable only if NGF path is reverted.
 ingress:
-  enabled: true
-  className: "nginx"
+  enabled: false
+  className: "nginx-public-i"
   annotations: 
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"   # Disable SSL redirection
     nginx.ingress.kubernetes.io/ssl-passthrough: "false"      # Disable SSL passthrough
   hosts:
-    - host: dev1-auth.somaz.example.com
+    - host: qa-app-admin.pm.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+    - host: external.example.com  # secondary host
       paths:
         - path: /
           pathType: ImplementationSpecific
@@ -79,6 +89,23 @@ ingress:
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
+
+# Gateway API HTTPRoute — sole traffic path after Phase 6 cutover (2026-04-17, .67 swap complete).
+# sectionName omitted → auto-attach to both HTTP and HTTPS listeners.
+# backendRefs omitted → chart auto-wires to the release's Service at service.port.
+httproute:
+  enabled: true
+  parentRefs:
+    - name: ngf-public-i
+      namespace: nginx-gateway
+  hostnames:
+    - qa-app-admin.pm.example.com
+    - external.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 
@@ -96,17 +123,26 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+strategy:
+  enabled: false
+  config:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1    # Maximum number of pods that can be created above the desired number of pods
+      maxUnavailable: "50%"  # Maximum number of unavailable pods during the update
+
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-# livenessProbe: {}
-livenessProbe: 
-  httpGet:
-    path: /health
-    port: http 
-# readinessProbe: {}
-readinessProbe:
-  httpGet:
-    path: /health
-    port: http
+startupProbe: {}
+livenessProbe: {}
+# livenessProbe: 
+#   httpGet:
+#     path: /health
+#     port: http 
+readinessProbe: {}
+# readinessProbe:
+#   httpGet:
+#     path: /health
+#     port: http
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
@@ -131,61 +167,61 @@ envConfig: {}
 configs:
   enabled: true
   items:
-    - name: dev1-auth-app-config
+    - name: qa-app-admin-app-config
       datas:
-        NODE_ENV: dev1
-        SERVER_PORT: 3000
-        REDIS_DB_HOST: dev1-cluster.somaz.example.com
-        REDIS_DB_PORT: 30479
-        COMMON_DB_TYPE: mysql
-        COMMON_DB_HOST: dev1-cluster.somaz.example.com
-        COMMON_DB_PORT: 30636
-        COMMON_DB_NAME: common
-        COMMON_DB_DATABASE: dev1_common
-        COMMON_DB_USER: dbuser
-        COMMON_DB_PASSWORD: examplePassword123!
+        NODE_ENV: qa
+        VITE_PORT: 3000
+        # VITE_API_URL: http://qa-admin.pm.example.com
+        VITE_API_URL: http://qa-example-project-admin.qa-example-project.svc.example-cluster.local
+
+# Init Containers Setting
+initContainers:
+  enabled: false
+
+emptyDirVolumes:
+  enabled: false
 
 persistentVolumes:
-  enabled: true
-  items:
-    - name: dev1-somaz-auth-app-data-pv
-      storage: 5Gi
-      volumeMode: Filesystem
-      accessModes:
-        - ReadWriteMany
-      reclaimPolicy: Retain
-      storageClassName: nfs-client-nopath
-      path: /volume1/nfs/somaz/dev1/server/data
-      server: 10.0.0.5
-    - name: dev1-somaz-auth-app-version-pv
-      storage: 5Gi
-      volumeMode: Filesystem
-      accessModes:
-        - ReadWriteMany
-      reclaimPolicy: Retain
-      storageClassName: nfs-client-nopath
-      path: /volume1/nfs/somaz/dev1/server/version
-      server: 10.0.0.5
+  enabled: false
+  # items:
+  #   - name: qa-example-project-app-admin-app-data-pv
+  #     storage: 5Gi
+  #     volumeMode: Filesystem
+  #     accessModes:
+  #       - ReadWriteMany
+  #     reclaimPolicy: Retain
+  #     storageClassName: nfs-client-nopath
+  #     path: /volume1/nfs/example-project/qa/server/data
+  #     server: 192.168.1.5
+  #   - name: qa-example-project-app-admin-app-version-pv
+  #     storage: 5Gi
+  #     volumeMode: Filesystem
+  #     accessModes:
+  #       - ReadWriteMany
+  #     reclaimPolicy: Retain
+  #     storageClassName: nfs-client-nopath
+  #     path: /volume1/nfs/example-project/qa/server/version
+  #     server: 192.168.1.5
 
 persistentVolumeClaims:
-  enabled: true
-  items:
-    - name: dev1-somaz-auth-app-data-pvc
-      accessModes:
-        - ReadWriteMany
-      storageClassName: nfs-client-nopath
-      storage: 5Gi
-      mountPath: /app/data
-      selector:
-        volumeName: dev1-somaz-auth-app-data-pv
-    - name: dev1-somaz-auth-app-version-pvc
-      accessModes:
-        - ReadWriteMany
-      storageClassName: nfs-client-nopath
-      storage: 5Gi
-      mountPath: /app/version
-      selector:
-        volumeName: dev1-somaz-auth-app-version-pv
+  enabled: false
+  # items:
+  #   - name: qa-example-project-app-admin-app-data-pvc
+  #     accessModes:
+  #       - ReadWriteMany
+  #     storageClassName: nfs-client-nopath
+  #     storage: 5Gi
+  #     mountPath: /app/data
+  #     selector:
+  #       volumeName: qa-example-project-app-admin-app-data-pv
+  #   - name: qa-example-project-app-admin-app-version-pvc
+  #     accessModes:
+  #       - ReadWriteMany
+  #     storageClassName: nfs-client-nopath
+  #     storage: 5Gi
+  #     mountPath: /app/version
+  #     selector:
+  #       volumeName: qa-example-project-app-admin-app-version-pv
 
 # Extra volumes to add to the deployment
 extraVolumes: []
@@ -199,7 +235,5 @@ certificate:
   
 certCleanup:
   enabled: false
-
-
 
 

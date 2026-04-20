@@ -1,6 +1,6 @@
 # =============================================================================
 # Base Helm Chart - Default Values
-# Generic Helm chart template for Kubernetes applications
+# On-premises Helm chart for ExampleProject/SecondaryProject applications
 # =============================================================================
 
 # -- Number of pod replicas
@@ -20,7 +20,7 @@ environment: ""
 # Ref: https://kubernetes.io/docs/concepts/containers/images/
 # =============================================================================
 image:
-  repository: harbor.somaz.example.com/somaz/app
+  repository: harbor.example.com/example-project/game
   pullPolicy: IfNotPresent
   # -- Overrides the image tag whose default is the chart appVersion
   tag: ""
@@ -32,9 +32,9 @@ image:
 # =============================================================================
 imageCredentials:
   enabled: true
-  registry: https://harbor.somaz.example.com
+  registry: https://harbor.example.com
   username: robot$example
-  password: exampleRobotTokenXXXXXXXXXX
+  password: <HARBOR_ROBOT_TOKEN>
   name: harbor-robot-secret
 
 imagePullSecrets:
@@ -117,6 +117,57 @@ ingress:
   #       - path: /
   #         pathType: ImplementationSpecific
   # tls: []
+
+# =============================================================================
+# Gateway API HTTPRoute
+# Ref: https://gateway-api.sigs.k8s.io/api-types/httproute/
+#
+# Gateway API counterpart to Ingress. Can be deployed in parallel with Ingress
+# (both ingress.enabled and httproute.enabled true at once).
+#
+# Default backend: the chart's fullname Service at service.port.
+# TLS is owned by the Gateway layer — select an HTTPS listener via parentRefs[*].sectionName.
+# =============================================================================
+httproute:
+  # -- Enable HTTPRoute resource creation
+  enabled: false
+  # annotations: {}
+  #
+  # parentRefs:
+  #   - name: ngf                      # Gateway name
+  #     namespace: nginx-gateway       # Gateway namespace
+  #     # sectionName: https           # bind to a specific listener (e.g. HTTPS)
+  #     # port: 443
+  #
+  # hostnames:
+  #   - example.com
+  #
+  # rules:
+  #   - matches:
+  #       - path:
+  #           type: PathPrefix         # PathPrefix | Exact | RegularExpression
+  #           value: /
+  #         # headers: []              # optional
+  #         # queryParams: []          # optional
+  #         # method: GET              # optional
+  #     # filters:                     # optional — URLRewrite / RequestRedirect / RequestHeaderModifier etc.
+  #     # timeouts:                    # optional
+  #     #   request: 60s
+  #     #   backendRequest: 30s
+  #     # backendRefs:                 # optional — omit to auto-wire to this release's Service
+  #     #   - # name defaults to chart fullname
+  #     #     # port defaults to service.port
+  #     #     port: 80
+  #
+  # HTTP → HTTPS 301 redirect (sibling HTTPRoute attached to the HTTP listener).
+  # Main parentRefs must bind to the HTTPS listener via sectionName: https.
+  httpsRedirect:
+    enabled: false
+    # statusCode: 301                  # 301 | 302 | 307 | 308
+    # parentRefs:
+    #   - name: ngf
+    #     namespace: nginx-gateway
+    #     sectionName: http
 
 # =============================================================================
 # Probes
@@ -268,7 +319,7 @@ initContainers:
   #     command: ["/bin/sh", "-c", "echo hello"]
   #     env:
   #       - name: FILE_SERVER_URL
-  #         value: "https://file-server.somaz.example.com"
+  #         value: "https://file-server.example.com"
   #     volumeMounts:
   #       - name: data-volume
   #         mountPath: /app/data
@@ -311,7 +362,7 @@ persistentVolumes:
   #     reclaimPolicy: Retain
   #     storageClassName: nfs-client
   #     path: /data/app          # NFS export path
-  #     server: 10.0.0.5         # NFS server IP
+  #     server: 192.168.1.5       # NFS server IP
 
 # =============================================================================
 # Persistent Volume Claims

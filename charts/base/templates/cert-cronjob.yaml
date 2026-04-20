@@ -9,7 +9,7 @@ spec:
     spec:
       template:
         spec:
-          serviceAccountName: {{ default (include "ke-use-nfs-server.fullname" .) .Values.rbac.serviceAccountName }}
+          serviceAccountName: {{ default (include "base.fullname" .) .Values.rbac.serviceAccountName }}
           containers:
           - name: cert-cleanup
             image: bitnami/kubectl:latest
@@ -20,7 +20,7 @@ spec:
                 set -e
                 now_epoch=$(date +%s)
                 # Delete old CertificateRequests
-                kubectl get certificaterequests.cert-manager.io -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ include "admin.fullname" . }} -o json | \
+                kubectl get certificaterequests.cert-manager.io -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -o json | \
                 jq --argjson now_epoch "$now_epoch" -r \
                   '.items[] | select(($now_epoch - (.metadata.creationTimestamp | gsub("[:-]"; " ") | sub("T"; " ") | sub("Z"; "") | sub("\\..*"; "") | strptime("%Y %m %d %H %M %S") | mktime)) > ({{ .Values.certCleanup.olderThanDays }} * 86400)) | .metadata.name' | \
                 xargs -I {} kubectl delete certificaterequest {} -n {{ .Release.Namespace }}

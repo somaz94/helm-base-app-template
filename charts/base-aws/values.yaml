@@ -1,6 +1,6 @@
 # =============================================================================
 # Base-AWS Helm Chart - Default Values
-# AWS EKS Helm chart for applications
+# AWS EKS Helm chart for TertiaryProject applications
 # =============================================================================
 
 # -- Number of pod replicas
@@ -16,7 +16,7 @@ replicaCount: 1
 # Ref: https://kubernetes.io/docs/concepts/containers/images/
 # =============================================================================
 image:
-  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/somaz/app
+  repository: 123456789012.dkr.ecr.eu-central-1.amazonaws.com/tertiary-project/game
   pullPolicy: IfNotPresent
   # -- Overrides the image tag whose default is the chart appVersion
   tag: ""
@@ -104,7 +104,7 @@ ingress:
   #   alb.ingress.kubernetes.io/scheme: internet-facing
   #   alb.ingress.kubernetes.io/target-type: ip
   #   # Ingress Group - share a single ALB across multiple ingresses
-  #   alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+  #   alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
   #   alb.ingress.kubernetes.io/group.order: "3"  # 1-1000, lower = higher priority
   #   # Health check
   #   alb.ingress.kubernetes.io/healthcheck-path: /health
@@ -116,17 +116,16 @@ ingress:
   #   alb.ingress.kubernetes.io/actions.rule-app: |
   #     {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"app-service","servicePort":"80","weight":100}]}}
   #   # ALB settings
-  #   alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+  #   alb.ingress.kubernetes.io/load-balancer-name: shared-alb-loadbalancer
   #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
   #   # ACM certificate for TLS termination
-  #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
+  #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/id
   #   # Target group tuning
   #   alb.ingress.kubernetes.io/target-group-attributes: |
   #     deregistration_delay.timeout_seconds=30,
   #     stickiness.enabled=false
-  #   alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
   # hosts:
-  #   - host: alpha-game.somaz.example.com
+  #   - host: app.example.com
   #     paths:
   #       - path: /
   #         pathType: Prefix
@@ -152,21 +151,14 @@ ingressHealth:
   # annotations:
   #   alb.ingress.kubernetes.io/scheme: internet-facing
   #   alb.ingress.kubernetes.io/target-type: ip
-  #   alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+  #   alb.ingress.kubernetes.io/group.name: shared-alb
   #   alb.ingress.kubernetes.io/group.order: "1"  # Highest priority
   #   alb.ingress.kubernetes.io/conditions.rule-health: |
   #     [{"field":"path-pattern","pathPatternConfig":{"values":["/health*"]}}]
   #   alb.ingress.kubernetes.io/actions.rule-health: |
   #     {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"app-service","servicePort":"80","weight":100}]}}
-  #   alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
-  #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-  #   alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
-  #   alb.ingress.kubernetes.io/target-group-attributes: |
-  #     deregistration_delay.timeout_seconds=30,
-  #     stickiness.enabled=false
-  #   alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
   # hosts:
-  #   - host: alpha-game.somaz.example.com
+  #   - host: app.example.com
   #     paths:
   #       - path: /health
   #         pathType: Prefix
@@ -188,7 +180,7 @@ ingressApiDocs:
   #   alb.ingress.kubernetes.io/actions.rule-apidocs: |
   #     {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"app-service","servicePort":"80","weight":100}]}}
   # hosts:
-  #   - host: alpha-game.somaz.example.com
+  #   - host: app.example.com
   #     paths:
   #       - path: /api-docs
   #         pathType: Prefix
@@ -238,7 +230,7 @@ strategy:
 # - Do NOT add external dependencies (DB, Redis) to Liveness — use Readiness instead
 # - Startup failureThreshold × periodSeconds must exceed max app startup time
 # =============================================================================
-# -- Startup probe configuration (empty = no probe)
+# -- Startup probe configuration
 # Prevents Liveness/Readiness from running until app is fully initialized
 startupProbe: {}
   # httpGet:
@@ -249,25 +241,25 @@ startupProbe: {}
   # failureThreshold: 30      # Consecutive failures before container restart (5s × 30 = max 150s wait)
   # timeoutSeconds: 3          # Max wait for single probe response
 
-# -- Liveness probe configuration (set to empty {} if app has no health endpoint)
+# -- Liveness probe configuration
 # initialDelaySeconds: Wait after Startup Probe succeeds before first liveness check
 # periodSeconds: Interval between probes (lower frequency = less overhead)
 # timeoutSeconds: Max wait for single probe response
 # failureThreshold: Consecutive failures → container restart
-livenessProbe: {}
-  # httpGet:
-  #   path: /health
-  #   port: http
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
 
-# -- Readiness probe configuration (set to empty {} if app has no health endpoint)
+# -- Readiness probe configuration
 # initialDelaySeconds: Start checking readiness quickly after Startup Probe
 # periodSeconds: Interval between probes (higher frequency for traffic-sensitive routing)
 # timeoutSeconds: Max wait for single probe response
 # failureThreshold: Consecutive failures → remove Pod from Service Endpoint (no restart)
-readinessProbe: {}
-  # httpGet:
-  #   path: /health
-  #   port: http
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
 
 # =============================================================================
 # Autoscaling (HPA)
@@ -295,7 +287,7 @@ rbac:
 # =============================================================================
 # -- Node selector for pod scheduling (e.g., target specific EKS node groups)
 nodeSelector: {}
-  # eks.amazonaws.com/nodegroup: ExampleNodegroupBaseNodeGroupA-XY9ZAmuND3P3
+  # eks.amazonaws.com/nodegroup: my-nodegroup
 
 tolerations: []
 
@@ -312,16 +304,15 @@ envConfig: {}
 # ConfigMap
 # =============================================================================
 configs:
+  # -- Enable ConfigMap creation and envFrom injection
   enabled: false
   # items:
   #   - name: app-config
   #     datas:
   #       NODE_ENV: "production"
   #       SERVER_PORT: "8080"
-  #       DB_HOST: "your-db-host.example.com"
-  #       DB_PORT: "3306"
-  #       DB_USER: "dbuser"
-  #       DB_PASSWORD: "examplePassword123!"
+  #       REDIS_HOST: "redis.namespace.svc.cluster.local"
+  #       REDIS_PORT: "6379"
 
 # =============================================================================
 # Extra Volumes & Mounts
@@ -350,8 +341,8 @@ efs:
     enabled: false
     # items:
     #   - name: "app-data-pv"
-    #     fileSystemId: "fs-0example123abc456"       # EFS file system ID (required)
-    #     accessPointId: "fsap-0example789def012"     # EFS access point ID (optional)
+    #     fileSystemId: "fs-0123456789abcdef0"       # EFS file system ID (required)
+    #     accessPointId: "fsap-0123456789abcdef0"     # EFS access point ID (optional)
     #     storage: "5Gi"
     #     volumeMode: Filesystem
     #     accessModes:

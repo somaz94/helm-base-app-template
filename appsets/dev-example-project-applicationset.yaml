@@ -1,35 +1,34 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: dev-somaz-applicationset
+  name: dev-example-project-applicationset
 spec:
   generators:
     - matrix:
         generators:
           - list:
               elements:
-                - cluster: somaz-dev-cluster # your cluster name
-                  url: https://10.0.0.10:6443  # your cluster url
+                - cluster: example-cluster # your cluster name
+                  url: https://192.168.1.17:6443  # your cluster url
                   values:
-                    project: somaz
+                    project: example-project
                     environment: dev1
-                - cluster: somaz-dev-cluster # your cluster name
-                  url: https://10.0.0.10:6443  # your cluster url
-                  values:
-                    project: somaz
-                    environment: dev2
           - git:
-              repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git # your source repo
+              repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git # your source repo
               revision: HEAD
               directories:
-                - path: values/somaz/*
+                - path: values/example-project/*
   template:
     metadata:
       name: '{{values.environment}}-{{values.project}}-{{path.basename}}'
+      labels:
+        environment: '{{values.environment}}'
+        project: '{{values.project}}'
+        app-name: '{{path.basename}}'
     spec:
       project: '{{values.project}}'
       source:
-        repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git
+        repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
         targetRevision: HEAD
         path: charts/base
         helm:
@@ -48,7 +47,6 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - ApplyOutOfSyncOnly=true
-
 
 
 

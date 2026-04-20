@@ -4,36 +4,36 @@
 
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 2
-# version: 1a2b3c4d
+# version: 6b7ccc64
 
 clientVersion:
   # multiple main versions for A/B testing ex. main: ["0.0.1", "0.1.0", "0.0.2"], single main versions for A/B testing: ex. main: ["0.0.1"]
-  main: ["0.1.0"]
-  review: ["0.1.1"]
+  main: ["0.1.0", "0.1.1"]
+  review: ["0.1.2"]
 
-# Service name variables
+# Service names as variables
 serviceNames:
-  main: "alpha-somaz-game"
-  review: "review-somaz-game"
+  main: "alpha-tertiary-project-game"
+  review: "review-tertiary-project-game"
 
-# Rule name variables
+# Rule names as variables
 ruleNames:
-  main: "rule-alpha-somaz-game"
-  review: "rule-alpha-somaz-game-review"
+  main: "rule-alpha-tertiary-project-game"
+  review: "rule-alpha-tertiary-project-game-review"
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/somaz/game
+  repository: 123456789012.dkr.ecr.eu-central-1.amazonaws.com/tertiary-project/game
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "9e87f654"
+  tag: "9a4c25fc"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
 # This is to override the chart name.
-nameOverride: "alpha-somaz-game"
-fullnameOverride: "alpha-somaz-game"
+nameOverride: "alpha-tertiary-project-game"
+fullnameOverride: "alpha-tertiary-project-game"
 
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
@@ -82,23 +82,23 @@ ingress:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    # Ingress Group - Share single ALB
-    alb.ingress.kubernetes.io/group.name: somaz-shared-alb
-    alb.ingress.kubernetes.io/group.order: "3" # 1-1000 configurable, lower number has higher priority
-    # Health check path configuration
+    # Ingress Group - share a single ALB
+    alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
+    alb.ingress.kubernetes.io/group.order: "3" # Configurable 1-1000, lower number = higher priority
+    # Add health check path setting
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-    # # Multi-version support example: ["0.1.0","0.1.1","0.1.2"] , changed to template dynamic processing
-    # alb.ingress.kubernetes.io/conditions.rule-alpha-somaz-game: |
+    # # Multi-version support example: ["0.1.0","0.1.1","0.1.2"], switched to template dynamic handling
+    # alb.ingress.kubernetes.io/conditions.rule-alpha-tertiary-project-game: |
     #   [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Client-Version","values":["0.0.1","0.1.0"]}}]
-    # alb.ingress.kubernetes.io/actions.rule-alpha-somaz-game: |
-    #   {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-somaz-game","servicePort":"80","weight":100}]}}
+    # alb.ingress.kubernetes.io/actions.rule-alpha-tertiary-project-game: |
+    #   {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-tertiary-project-game","servicePort":"80","weight":100}]}}
     # Additional ALB settings
-    alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]' # Remove HTTP (CDN Origin uses HTTPS only)
-    # ACM certificate settings (ALB for us-east-1)
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
+    alb.ingress.kubernetes.io/load-balancer-name: tertiary-project-shared-alb-loadbalancer
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]' # HTTP removed (CDN Origin is HTTPS only)
+    # ACM certificate settings (for ALB - eu-central-1)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:123456789012:certificate/d434dcb4-1906-450c-9573-9a58929ac5b3
     # CDN optimization settings
     alb.ingress.kubernetes.io/target-group-attributes: |
       deregistration_delay.timeout_seconds=30,
@@ -106,112 +106,112 @@ ingress:
     # Origin identification tag
     alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
   hosts:
-    - host: alpha-game.somaz.example.com # Domain that CloudFront forwards via Host header
+    - host: alpha-game.tertiary-project.example.com # Domain CloudFront passes in the Host header
       paths:
         - path: /
           pathType: Prefix
           useAnnotation: true
-          serviceName: rule-alpha-somaz-game
+          serviceName: rule-alpha-tertiary-project-game
 
-# Review Ingress configuration (for app store review)
+# Review Ingress settings (for Mac review)
 ingressReview:
-  enabled: true # Change to true only when needed
+  enabled: false # Change to true only when needed
   className: "alb"
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    # Ingress Group - Share single ALB
-    alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+    # Ingress Group - share a single ALB
+    alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
     alb.ingress.kubernetes.io/group.order: "4" # health(1), api-docs(2), main(3), review(4)
-    # Health check path configuration
+    # Add health check path setting
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-    # # Review (for app store review) , changed to template dynamic processing
-    # alb.ingress.kubernetes.io/conditions.rule-alpha-somaz-game-review: |
+    # # Review (for iOS review), switched to template dynamic handling
+    # alb.ingress.kubernetes.io/conditions.rule-alpha-tertiary-project-game-review: |
     #   [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"Client-Version","values":["0.1.1"]}}]
-    # alb.ingress.kubernetes.io/actions.rule-alpha-somaz-game-review: |
-    #   {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"review-somaz-game","servicePort":"80","weight":100}]}}
-    # Common ALB settings
-    alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+    # alb.ingress.kubernetes.io/actions.rule-alpha-tertiary-project-game-review: |
+    #   {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"review-tertiary-project-game","servicePort":"80","weight":100}]}}
+    # ALB common settings
+    alb.ingress.kubernetes.io/load-balancer-name: tertiary-project-shared-alb-loadbalancer
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:123456789012:certificate/d434dcb4-1906-450c-9573-9a58929ac5b3
     alb.ingress.kubernetes.io/target-group-attributes: |
       deregistration_delay.timeout_seconds=30,
       stickiness.enabled=false
     alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
   hosts:
-    - host: alpha-game.somaz.example.com
+    - host: alpha-game.tertiary-project.example.com
       paths:
         - path: /
           pathType: Prefix
           useAnnotation: true
-          serviceName: rule-alpha-somaz-game-review
+          serviceName: rule-alpha-tertiary-project-game-review
 
-# Health Ingress configuration
+# Health Ingress settings
 ingressHealth:
   enabled: true
   className: "alb"
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    # Ingress Group - Share single ALB
-    alb.ingress.kubernetes.io/group.name: somaz-shared-alb
-    alb.ingress.kubernetes.io/group.order: "1" # High priority (higher than existing)
-    # Health check path configuration
+    # Ingress Group - share a single ALB
+    alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
+    alb.ingress.kubernetes.io/group.order: "1" # High priority (takes precedence over existing)
+    # Add health check path setting
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-    # Health check access (no header conditions)
+    # Health check access (no header condition)
     alb.ingress.kubernetes.io/conditions.rule-alpha-health: |
       [{"field":"path-pattern","pathPatternConfig":{"values":["/health*"]}}]
     alb.ingress.kubernetes.io/actions.rule-alpha-health: |
-      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-somaz-game","servicePort":"80","weight":100}]}}
-    # Common ALB settings
-    alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-tertiary-project-game","servicePort":"80","weight":100}]}}
+    # ALB common settings
+    alb.ingress.kubernetes.io/load-balancer-name: tertiary-project-shared-alb-loadbalancer
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:123456789012:certificate/d434dcb4-1906-450c-9573-9a58929ac5b3
     alb.ingress.kubernetes.io/target-group-attributes: |
       deregistration_delay.timeout_seconds=30,
       stickiness.enabled=false
     alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
   hosts:
-    - host: alpha-game.somaz.example.com
+    - host: alpha-game.tertiary-project.example.com
       paths:
         - path: /health
           pathType: Prefix
           useAnnotation: true
           serviceName: rule-alpha-health
 
-# API Docs Ingress configuration
+# API Docs Ingress settings
 ingressApiDocs:
   enabled: true
   className: "alb"
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    # Ingress Group - Share single ALB
-    alb.ingress.kubernetes.io/group.name: somaz-shared-alb
+    # Ingress Group - share a single ALB
+    alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
     alb.ingress.kubernetes.io/group.order: "2" # Second priority
-    # Health check path configuration
+    # Add health check path setting
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-    # API docs access (no header conditions)
+    # API docs access (no header condition)
     alb.ingress.kubernetes.io/conditions.rule-alpha-apidocs: |
       [{"field":"path-pattern","pathPatternConfig":{"values":["/api-docs*"]}}]
     alb.ingress.kubernetes.io/actions.rule-alpha-apidocs: |
-      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-somaz-game","servicePort":"80","weight":100}]}}
-    # Common ALB settings
-    alb.ingress.kubernetes.io/load-balancer-name: somaz-shared-alb-loadbalancer
+      {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"alpha-tertiary-project-game","servicePort":"80","weight":100}]}}
+    # ALB common settings
+    alb.ingress.kubernetes.io/load-balancer-name: tertiary-project-shared-alb-loadbalancer
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-5678-90ef-ghij-klmnopqrstuv
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:123456789012:certificate/d434dcb4-1906-450c-9573-9a58929ac5b3
     alb.ingress.kubernetes.io/target-group-attributes: |
       deregistration_delay.timeout_seconds=30,
       stickiness.enabled=false
     alb.ingress.kubernetes.io/tags: "Purpose=CDN-Origin"
   hosts:
-    - host: alpha-game.somaz.example.com
+    - host: alpha-game.tertiary-project.example.com
       paths:
         - path: /api-docs
           pathType: Prefix
@@ -225,13 +225,13 @@ resources:
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # Alpha test environment - 100 concurrent users, 2 replica baseline
+  # Alpha test environment - 100 concurrent users, 2 replicas baseline
   limits:
-    cpu: 1000m # 1 CPU core
-    memory: 2Gi # 2GB RAM
+    cpu: 2000m # 2 CPU core
+    memory: 4Gi # 4GB RAM
   requests:
     cpu: 100m # 0.5 CPU core
-    memory: 1Gi # 1GB RAM
+    memory: 2Gi # 2GB RAM
 
 strategy:
   enabled: true
@@ -239,19 +239,37 @@ strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1 # Maximum number of pods that can be created above the desired number of pods
-      maxUnavailable: "50%" # Maximum number of unavailable pods during the update
+      maxUnavailable: 1 # Maximum number of unavailable pods during the update
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-# livenessProbe: {}
+# Probe order: Startup → (Liveness + Readiness in parallel)
+# Startup succeeds → Liveness/Readiness start. Startup fails → container restarts (no Liveness/Readiness runs).
+# Liveness fails → container restarts. Readiness fails → traffic blocked (no restart).
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 30 # 5s × 30 = max 150s wait (EFS mount delay)
+  timeoutSeconds: 3
+
 livenessProbe:
   httpGet:
     path: /health
     port: http
-# readinessProbe: {}
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
 readinessProbe:
   httpGet:
     path: /health
     port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
@@ -265,7 +283,7 @@ rbac:
   enabled: false
 
 nodeSelector:
-  eks.amazonaws.com/nodegroup: ExampleNodegroupBaseNodeGroupA-XY9ZAmuND3P3
+  eks.amazonaws.com/nodegroup: example-nodegroup
 
 tolerations: []
 
@@ -282,47 +300,48 @@ configs:
       datas:
         NODE_ENV: alpha
         SERVER_PORT: 8080
+        ALLOW_JSON_CONTENT_TYPE: false
 
-        # pub/sub Redis
-        REDIS_HOST: alpha-somaz-redis.somaz.svc.cluster.local
+        # pub/sup Redis
+        REDIS_HOST: alpha-tertiary-project-redis.tertiary-project.svc.cluster.local
         REDIS_PORT: 6379
         REDIS_NUMBER: 0
 
         # Session Redis
-        SESSION_REDIS_HOST: somaz-redis-cluster-client.somaz.svc.cluster.local
+        SESSION_REDIS_HOST: master.alpha-tertiary-project-redis.example.euc1.cache.amazonaws.com
         SESSION_REDIS_PORT: 6379
         SESSION_REDIS_NUMBER: 0
-        SESSION_REDIS_CLUSTER_MODE: true
-        SESSION_REDIS_TTL: 3600
+        SESSION_REDIS_CLUSTER_MODE: false
+        SESSION_REDIS_TTL: 0
 
         # User Level Lock redis
         USER_LEVEL_LOCK_ENABLED: true
-        RED_LOCK_REDIS_HOST: somaz-redis-cluster-client.somaz.svc.cluster.local
+        RED_LOCK_REDIS_HOST: master.alpha-tertiary-project-redis.example.euc1.cache.amazonaws.com
         RED_LOCK_REDIS_PORT: 6379
         RED_LOCK_REDIS_NUMBER: 0
-        RED_LOCK_REDIS_CLUSTER_MODE: true
+        RED_LOCK_REDIS_CLUSTER_MODE: false
 
         COMMON_DB_TYPE: mysql
-        COMMON_DB_HOST: alpha-somaz-rds-aurora.cluster-example123.us-east-1.rds.amazonaws.com
-        # COMMON_DB_HOST: demo-cluster.example.us
+        COMMON_DB_HOST: alpha-tertiary-project-rds-aurora.cluster-examplecluster.eu-central-1.rds.amazonaws.com
+        # COMMON_DB_HOST: example-cluster.example.com
         COMMON_DB_PORT: 3306
         # COMMON_DB_PORT: 30636
         COMMON_DB_NAME: common
         COMMON_DB_DATABASE: alpha_common
-        COMMON_DB_USER: dbuser
-        COMMON_DB_PASSWORD: example123!
+        COMMON_DB_USER: example-project
+        COMMON_DB_PASSWORD: exampleAdminPassword
         GAME_DB_TYPE: mysql
-        GAME_DB_HOST: alpha-somaz-rds-aurora.cluster-example123.us-east-1.rds.amazonaws.com
-        # GAME_DB_HOST: demo-cluster.example.us
+        GAME_DB_HOST: alpha-tertiary-project-rds-aurora.cluster-examplecluster.eu-central-1.rds.amazonaws.com
+        # GAME_DB_HOST: example-cluster.example.com
         GAME_DB_PORT: 3306
         # GAME_DB_PORT: 30636
         GAME_DB_NAME: game
         GAME_DB_DATABASE: alpha_game
-        GAME_DB_USER: dbuser
-        GAME_DB_PASSWORD: example123!
+        GAME_DB_USER: example-project
+        GAME_DB_PASSWORD: exampleAdminPassword
         CHECK_VERSION: false
         CHECK_REQUEST_SEQUENCE: false
-        BATTLE_SERVER_URL: http://alpha-somaz-battle.somaz.svc.cluster.local # <svc.name>.<namespace>.svc.<cluster_dns> current cluster dns = cluster.local
+        BATTLE_SERVER_URL: http://alpha-tertiary-project-battle.tertiary-project.svc.cluster.local # <svc.name>.<namespace>.svc.<cluster_dns> current cluster dns = cluster.local
 
 # Additional volumes on the output Deployment definition.
 volumes: []
@@ -337,32 +356,32 @@ volumeMounts: []
 #   mountPath: "/etc/foo"
 #   readOnly: true
 
-# EFS related configuration
+# EFS settings
 efs:
   persistentVolumes:
     enabled: true
     items:
-      - name: "alpha-somaz-game-app-data-pv"
-        fileSystemId: "fs-0example123abc456"
-        accessPointId: "fsap-0example789def012" # Access Point ID created by Terraform
+      - name: "alpha-tertiary-project-game-app-data-pv"
+        fileSystemId: "fs-0d40ed2fdfb55549b"
+        accessPointId: "fsap-006177dc6c6c8d87c" # Access Point ID created by Terraform
         storage: "5Gi"
         volumeMode: Filesystem
         accessModes:
           - ReadWriteMany
         reclaimPolicy: Retain
         storageClassName: "efs-sc"
-      - name: "alpha-somaz-game-app-logs-pv"
-        fileSystemId: "fs-0example123abc456"
-        accessPointId: "fsap-0example456ghi789" # Access Point ID created by Terraform
+      - name: "alpha-tertiary-project-game-app-logs-pv"
+        fileSystemId: "fs-0d40ed2fdfb55549b"
+        accessPointId: "fsap-0c721190faa15a93b" # Access Point ID created by Terraform
         storage: "5Gi"
         volumeMode: Filesystem
         accessModes:
           - ReadWriteMany
         reclaimPolicy: Retain
         storageClassName: "efs-sc"
-      - name: "alpha-somaz-game-app-version-pv"
-        fileSystemId: "fs-0example123abc456"
-        accessPointId: "fsap-0example012jkl345" # Access Point ID created by Terraform
+      - name: "alpha-tertiary-project-game-app-version-pv"
+        fileSystemId: "fs-0d40ed2fdfb55549b"
+        accessPointId: "fsap-0e54ebb91ce5c57a0" # Access Point ID created by Terraform
         storage: "5Gi"
         volumeMode: Filesystem
         accessModes:
@@ -373,27 +392,27 @@ efs:
   persistentVolumeClaims:
     enabled: true
     items:
-      - name: "alpha-somaz-game-app-data-pvc"
+      - name: "alpha-tertiary-project-game-app-data-pvc"
         accessModes:
           - ReadWriteMany
         storageClassName: "efs-sc"
         storage: "5Gi"
         mountPath: "/app/data"
         selector:
-          volumeName: "alpha-somaz-game-app-data-pv"
-      - name: "alpha-somaz-game-app-logs-pvc"
+          volumeName: "alpha-tertiary-project-game-app-data-pv"
+      - name: "alpha-tertiary-project-game-app-logs-pvc"
         accessModes:
           - ReadWriteMany
         storageClassName: "efs-sc"
         storage: "5Gi"
         mountPath: "/app/logs"
         selector:
-          volumeName: "alpha-somaz-game-app-logs-pv"
-      - name: "alpha-somaz-game-app-version-pvc"
+          volumeName: "alpha-tertiary-project-game-app-logs-pv"
+      - name: "alpha-tertiary-project-game-app-version-pvc"
         accessModes:
           - ReadWriteMany
         storageClassName: "efs-sc"
         storage: "5Gi"
         mountPath: "/app/version"
         selector:
-          volumeName: "alpha-somaz-game-app-version-pv"
+          volumeName: "alpha-tertiary-project-game-app-version-pv"

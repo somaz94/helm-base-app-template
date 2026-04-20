@@ -18,7 +18,7 @@ spec:
   storageClassName: {{ .storageClassName }}
   {{- if .selector }}
   {{- if .selector.volumeName }}
-  volumeName: {{ .selector.volumeName }}  # Static PV 바인딩
+  volumeName: {{ .selector.volumeName }}  # Static PV binding
   {{- end }}
   {{- end }}
 {{- end }}

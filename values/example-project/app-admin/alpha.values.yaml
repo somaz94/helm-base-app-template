@@ -1,27 +1,24 @@
+# Default values for base-aws.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
+# version: 71bcd6d8
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: harbor.somaz.example.com/somaz/backend
+  repository: 123456789012.dkr.ecr.eu-central-1.amazonaws.com/tertiary-project/app-admin
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "44c37ad0"
+  tag: "046b16f7"
 
-imageCredentials:
-  enabled: true
-  registry: https://harbor.somaz.example.com
-  username: robot$example
-  password: exampleRobotTokenXXXXXXXXXX
-  name: harbor-robot-secret
-
-# This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-imagePullSecrets: 
-  - name: harbor-robot-secret
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
 # This is to override the chart name.
-nameOverride: ""
-fullnameOverride: "qa1-somaz-backend"
+nameOverride: "alpha-tertiary-project-app-admin"
+fullnameOverride: "alpha-tertiary-project-app-admin"
 
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
@@ -64,44 +61,73 @@ service:
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: true
-  className: "nginx"
-  annotations: 
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"   # Disable SSL redirection
-    nginx.ingress.kubernetes.io/ssl-passthrough: "false"      # Disable SSL passthrough
+  className: "alb"  # Or the ingress controller in use
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # Ingress Group - share a single ALB
+    alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
+    alb.ingress.kubernetes.io/group.order: "21" # Configurable 1-1000, lower number = higher priority
+    # Add health check path setting
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    # External DNS
+    external-dns.tertiary-project.kubernetes.io/hostname: alpha-app-admin.tertiary-project.example.com
+    # Additional ALB settings
+    alb.ingress.kubernetes.io/load-balancer-name: tertiary-project-shared-alb-loadbalancer
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # ACM certificate settings
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:123456789012:certificate/14eeaf2b-e34e-416d-a1bb-fbfb18c9f59b
   hosts:
-    - host: qa1-backend.somaz.example.com
+    - host: alpha-app-admin.tertiary-project.example.com
       paths:
         - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+          pathType: Prefix
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+# Review Ingress settings (for iOS review)
+ingressReview:
+  enabled: false
+
+# Health check only ingress
+ingressHealth:
+  enabled: false  # true only when needed
+
+# API docs only ingress
+ingressApiDocs:
+  enabled: false  # true only when needed
 
 revisionHistoryLimit: 1
 
-resources: {}
+resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  # Alpha test environment - 100 concurrent users, 2 replicas baseline
+  limits:
+    cpu: 1000m      # 1 CPU core
+    memory: 2Gi     # 2GB RAM
+  requests:
+    cpu: 100m       # 0.5 CPU core
+    memory: 1Gi     # 1GB RAM
+
+strategy:
+  enabled: false
+  config:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1 # Maximum number of pods that can be created above the desired number of pods
+      maxUnavailable: "50%" # Maximum number of unavailable pods during the update
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+startupProbe: {}
 # livenessProbe: {}
-livenessProbe: 
+livenessProbe:
   httpGet:
     path: /health
-    port: http 
+    port: http
 # readinessProbe: {}
 readinessProbe:
   httpGet:
@@ -119,86 +145,46 @@ autoscaling:
 rbac:
   enabled: false
 
-nodeSelector: {}
+nodeSelector:
+  eks.amazonaws.com/nodegroup: example-nodegroup
 
 tolerations: []
 
 affinity: {}
 
-envConfig: {}
+envConfig:
+  {}
   # NODE_ENV: base
 
 configs:
   enabled: true
   items:
-    - name: qa1-backend-app-config
+    - name: alpha-app-admin-app-config
       datas:
-        NODE_ENV: qa1
-        SERVER_PORT: 3000
-        REDIS_DB_HOST: qa1-cluster.somaz.example.com
-        REDIS_DB_PORT: 30479
-        COMMON_DB_TYPE: mysql
-        COMMON_DB_HOST: qa1-cluster.somaz.example.com
-        COMMON_DB_PORT: 30636
-        COMMON_DB_NAME: common
-        COMMON_DB_DATABASE: qa1_common
-        COMMON_DB_USER: dbuser
-        COMMON_DB_PASSWORD: examplePassword123!
+        NODE_ENV: alpha
+        VITE_PORT: 3000
+        # VITE_API_URL: http://dev-admin.pm.example.com
+        VITE_API_URL: http://alpha-tertiary-project-admin.tertiary-project.svc.cluster.local
 
-persistentVolumes:
-  enabled: true
-  items:
-    - name: qa1-somaz-backend-app-data-pv
-      storage: 5Gi
-      volumeMode: Filesystem
-      accessModes:
-        - ReadWriteMany
-      reclaimPolicy: Retain
-      storageClassName: nfs-client-nopath
-      path: /volume1/nfs/somaz/qa1/server/data
-      server: 10.0.0.5
-    - name: qa1-somaz-backend-app-version-pv
-      storage: 5Gi
-      volumeMode: Filesystem
-      accessModes:
-        - ReadWriteMany
-      reclaimPolicy: Retain
-      storageClassName: nfs-client-nopath
-      path: /volume1/nfs/somaz/qa1/server/version
-      server: 10.0.0.5
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
 
-persistentVolumeClaims:
-  enabled: true
-  items:
-    - name: qa1-somaz-backend-app-data-pvc
-      accessModes:
-        - ReadWriteMany
-      storageClassName: nfs-client-nopath
-      storage: 5Gi
-      mountPath: /app/data
-      selector:
-        volumeName: qa1-somaz-backend-app-data-pv
-    - name: qa1-somaz-backend-app-version-pvc
-      accessModes:
-        - ReadWriteMany
-      storageClassName: nfs-client-nopath
-      storage: 5Gi
-      mountPath: /app/version
-      selector:
-        volumeName: qa1-somaz-backend-app-version-pv
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
 
-# Extra volumes to add to the deployment
-extraVolumes: []
+# EFS settings
+efs:
+  persistentVolumes:
+    enabled: false
 
-# Extra volume mounts to add to the container
-extraVolumeMounts: []
-
-# AWS
-certificate:
-  enabled: false
-  
-certCleanup:
-  enabled: false
-
+  persistentVolumeClaims:
+    enabled: false
 
 

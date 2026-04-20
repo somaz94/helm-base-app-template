@@ -1,35 +1,37 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: prod-somaz-applicationset
+  name: qa-example-project-applicationset
 spec:
   generators:
     - matrix:
         generators:
           - list:
               elements:
-                - cluster: somaz-prod-cluster # your cluster name
-                  url: https://10.0.0.10:6443  # your cluster url
+                - cluster: example-cluster # your cluster name
+                  url: https://192.168.1.17:6443  # your cluster url
                   values:
-                    project: somaz
-                    environment: prod-a
-                - cluster: somaz-prod-cluster # your cluster name
-                  url: https://10.0.0.10:6443  # your cluster url
-                  values:
-                    project: somaz
-                    environment: prod-b
+                    project: example-project
+                    environment: qa1
           - git:
-              repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git # your source repo
+              repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git # your source repo
               revision: HEAD
               directories:
-                - path: values/somaz/*
+                # - path: values/example-project/*
+                - path: values/example-project/game
+                - path: values/example-project/admin
+                - path: values/example-project/app-admin
   template:
     metadata:
       name: '{{values.environment}}-{{values.project}}-{{path.basename}}'
+      labels:
+        environment: '{{values.environment}}'
+        project: '{{values.project}}'
+        app-name: '{{path.basename}}'
     spec:
       project: '{{values.project}}'
       source:
-        repoURL: git@gitlab.somaz.example.com:somaz/helm-base-app-template.git
+        repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
         targetRevision: HEAD
         path: charts/base
         helm:
@@ -48,7 +50,6 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - ApplyOutOfSyncOnly=true
-
 
 
 

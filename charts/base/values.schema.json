@@ -106,6 +106,61 @@
                 "tls": { "type": "array" }
             }
         },
+        "httproute": {
+            "type": "object",
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "annotations": { "type": "object" },
+                "parentRefs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": { "type": "string" },
+                            "namespace": { "type": "string" },
+                            "sectionName": { "type": "string" },
+                            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                        },
+                        "required": ["name"]
+                    }
+                },
+                "hostnames": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "matches": { "type": "array" },
+                            "filters": { "type": "array" },
+                            "timeouts": { "type": "object" },
+                            "backendRefs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": { "type": "string" },
+                                        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                                        "weight": { "type": "integer" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "httpsRedirect": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": { "type": "boolean" },
+                        "statusCode": { "type": "integer", "enum": [301, 302, 307, 308] },
+                        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                        "parentRefs": { "type": "array" }
+                    }
+                }
+            }
+        },
         "startupProbe": { "type": "object" },
         "livenessProbe": { "type": "object" },
         "readinessProbe": { "type": "object" },

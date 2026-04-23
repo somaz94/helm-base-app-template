@@ -1,0 +1,28 @@
+name: Helm Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  helm-lint:
+    name: Helm Lint (${{ matrix.chart }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chart:
+          - charts/base
+          - charts/base-aws
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Helm Kustomize Lint
+        uses: somaz94/helm-kustomize-lint-action@v1
+        with:
+          chart_path: ${{ matrix.chart }}

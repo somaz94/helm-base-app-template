@@ -12,7 +12,7 @@ image:
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "b4482c5f"
+  tag: "94497650"
 
 imageCredentials:
   enabled: true

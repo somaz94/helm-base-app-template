@@ -2,5 +2,5 @@ apiVersion: v2
 name: base-azure
 description: Azure AKS Helm chart for Kubernetes applications
 type: application
-version: 1.0.0
+version: 0.1.0
 appVersion: "1.0.0"

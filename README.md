@@ -175,12 +175,17 @@ Four charts share one shape — the same values surface, the same templates, the
 Rollouts / PDB / ExternalSecret / Gateway API features — and differ only in their platform
 defaults. Pick by where the cluster runs.
 
-| Chart | Platform | Ingress | Storage | Identity |
-|-------|----------|---------|---------|----------|
-| `base` | Self-managed / on-prem | nginx, Gateway API | NFS, any CSI | — |
-| `base-aws` | AWS EKS | ALB, Gateway API | EFS + any CSI | IRSA |
-| `base-azure` | Azure AKS | Application Gateway (AGIC), Gateway API | Azure Files / Disk + any CSI | Entra Workload Identity |
-| `base-gcp` | GCP GKE | GKE Ingress + BackendConfig/FrontendConfig, Gateway API | Filestore / PD + any CSI | GKE Workload Identity |
+| Chart | Version | Platform | Ingress | Storage | Identity |
+|-------|---------|----------|---------|---------|----------|
+| `base` | `1.0.0` | Self-managed / on-prem | nginx, Gateway API | NFS, any CSI | — |
+| `base-aws` | `1.0.0` | AWS EKS | ALB, Gateway API | EFS + any CSI | IRSA |
+| `base-azure` | `0.1.0` | Azure AKS | Application Gateway (AGIC), Gateway API | Azure Files / Disk + any CSI | Entra Workload Identity |
+| `base-gcp` | `0.1.0` | GCP GKE | GKE Ingress + BackendConfig/FrontendConfig, Gateway API | Filestore / PD + any CSI | GKE Workload Identity |
+
+`base` and `base-aws` are at `1.0.0` — they were extracted from charts running in production.
+`base-azure` and `base-gcp` sit at `0.1.0` deliberately: they lint and render, but no cluster has
+exercised their AGIC annotations, Filestore `volumeHandle` syntax, or BackendConfig wiring yet.
+They graduate to `1.0.0` once someone runs them for real.
 
 ### Storage is driver-neutral everywhere
 

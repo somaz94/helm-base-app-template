@@ -1,0 +1,49 @@
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "blueGreen") .Values.ingressPreview.enabled -}}
+# Preview Ingress for the Blue-Green Rollout. Only rendered under the blueGreen strategy —
+# canary needs no preview readiness-gate target group, so this is skipped there. Binds the <fullname>-preview Service to a Application Gateway
+# target group so preview pods (a) satisfy the namespace-level pod-readiness gate — without
+# it the preview pods never go Ready and the rollout stalls — and (b) provide a real pre-promote
+# verification path. Intended for an internal Application Gateway; the
+# per-service host / annotations are supplied by values (rollout.enabled gates it on/off).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "base-azure.fullname" . }}-preview
+  labels:
+    {{- include "base-azure.labels" . | nindent 4 }}
+  {{- with .Values.ingressPreview.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingressPreview.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingressPreview.tls }}
+  tls:
+    {{- range .Values.ingressPreview.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingressPreview.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- with .pathType }}
+            pathType: {{ . }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ include "base-azure.fullname" $ }}-preview
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,43 @@
+{{- if .Values.ingressReview.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "base-gcp.fullname" . }}-review
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingressReview.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.ingressReview.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingressReview.tls }}
+  tls:
+    {{- range .Values.ingressReview.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingressReview.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- with .pathType }}
+            pathType: {{ . }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ include "base-gcp.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

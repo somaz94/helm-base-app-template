@@ -1,0 +1,85 @@
+{{- if .Values.rollout.enabled }}
+# Argo Rollouts delivery — renders INSTEAD of templates/deployment.yaml (mutually
+# exclusive via rollout.enabled). The pod template is shared with the Deployment through
+# the base-azure.podTemplate helper so the two never drift. The strategy is selected by
+# rollout.strategy (default "blueGreen"):
+#   blueGreen — activeService reuses the existing Service (<fullname>); previewService is
+#     the new <fullname>-preview Service. Argo injects rollouts-pod-template-hash into both
+#     Services' selectors, so no manual version wiring is needed. Promotion swaps the active
+#     target group all-at-once.
+#   canary — a single active target group, pods swapped add-before-remove; no previewService
+#     and no <fullname>-preview Service/Ingress are rendered.
+# Either way Argo injects rollouts-pod-template-hash as the sole blue/green (or
+# stable/canary) discriminator, so the active Service selector needs no manual version label.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "base-azure.fullname" . }}
+  labels:
+    {{- include "base-azure.labels" . | nindent 4 }}
+spec:
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "base-azure.selectorLabels" . | nindent 6 }}
+  # Delivery strategy is an explicit per-service decision — no silent default. When
+  # rollout.enabled=true, each values file MUST set rollout.strategy to "canary" or
+  # "blueGreen"; an unset or unknown value fails the render (a misconfigured service should
+  # never inherit a strategy by accident).
+  {{- $strategy := required "rollout.strategy is required when rollout.enabled=true — set it to \"canary\" or \"blueGreen\"" .Values.rollout.strategy }}
+  strategy:
+    {{- if eq $strategy "canary" }}
+    # Canary rolling: a single active target group, pods swapped add-before-remove.
+    # With maxUnavailable: 0 the ready count never drops below desired, so the active
+    # backend pool is never momentarily 0-healthy — this removes the blueGreen
+    # active-TG endpoint-swap race that surfaces ELB 503s on promotion. No steps and no
+    # trafficRouting: old and new pods briefly coexist in the same TG (mixed traffic),
+    # which is safe only for services that tolerate a request hitting either version.
+    canary:
+      maxSurge: {{ .Values.rollout.canary.maxSurge }}
+      maxUnavailable: {{ .Values.rollout.canary.maxUnavailable }}
+    {{- else if eq $strategy "blueGreen" }}
+    blueGreen:
+      activeService: {{ include "base-azure.fullname" . }}
+      previewService: {{ include "base-azure.fullname" . }}-preview
+      autoPromotionEnabled: {{ .Values.rollout.blueGreen.autoPromotionEnabled }}
+      # Keep old pods serving until new pods are healthy in the active backend pool;
+      # pairs with deregistration_delay=30s so promote does not surface a 502.
+      scaleDownDelaySeconds: {{ .Values.rollout.blueGreen.scaleDownDelaySeconds }}
+      {{- with .Values.rollout.blueGreen.previewReplicaCount }}
+      previewReplicaCount: {{ . }}
+      {{- end }}
+      {{- with .Values.rollout.analysis.prePromotion.templates }}
+      # prePromotion runs BEFORE the active switch. Today this is an infra-layer signal
+      # (Web smoke-probe of the preview host) — needs NO app change. When the app later
+      # exposes /metrics, swap for a Prometheus RED AnalysisTemplate; this shape stays.
+      prePromotionAnalysis:
+        templates:
+          {{- toYaml . | nindent 10 }}
+        {{- with $.Values.rollout.analysis.prePromotion.args }}
+        args:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.rollout.analysis.postPromotion.templates }}
+      # postPromotion runs AFTER the switch on real traffic and auto-rolls-back on failure.
+      # Today this is an infra-layer signal (Application Gateway 5xx / latency metrics on the active
+      # target group) — needs NO app change. Swap for a Prometheus RED AnalysisTemplate
+      # once the app exposes /metrics.
+      postPromotionAnalysis:
+        templates:
+          {{- toYaml . | nindent 10 }}
+        {{- with $.Values.rollout.analysis.postPromotion.args }}
+        args:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+    {{- else }}
+    {{- fail (printf "rollout.strategy must be \"canary\" or \"blueGreen\", got %q" $strategy) }}
+    {{- end }}
+  template:
+{{- include "base-azure.podTemplate" . }}
+{{- end }}

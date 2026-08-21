@@ -1,0 +1,770 @@
+# =============================================================================
+# Base-GCP Helm Chart - Default Values
+# GCP GKE Helm chart for Kubernetes applications
+# =============================================================================
+
+# -- Number of pod replicas
+# Ref: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
+replicaCount: 1
+
+# -- Version label added to pods for canary/blue-green routing
+# Used by Service selector to route traffic to specific version pods
+# version: ""
+
+# =============================================================================
+# Container Image
+# Ref: https://kubernetes.io/docs/concepts/containers/images/
+# =============================================================================
+image:
+  repository: us-central1-docker.pkg.dev/my-project/my-repo/app
+  pullPolicy: IfNotPresent
+  # -- Image tag — REQUIRED per service (helm render fails if unset; no appVersion fallback)
+  tag: ""
+
+# =============================================================================
+# Image Pull Secrets
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+# NOTE: Artifact Registry authentication is typically handled by Workload Identity,
+# so imagePullSecrets is usually not needed.
+# =============================================================================
+imagePullSecrets: []
+
+# -- Override the chart name used in resource naming
+nameOverride: ""
+# -- Override the full release name used in resource naming
+fullnameOverride: ""
+
+# =============================================================================
+# Service Account
+# Ref: https://kubernetes.io/docs/concepts/security/service-accounts/
+# =============================================================================
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Automatically mount the ServiceAccount API credentials
+  automount: true
+  # -- Annotations to add to the service account (e.g., Workload Identity binding)
+  annotations: {}
+    # Workload Identity: bind this ServiceAccount to a Google service account.
+    # iam.gke.io/gcp-service-account: my-gsa@my-project.iam.gserviceaccount.com
+  # -- The name of the service account to use
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# =============================================================================
+# Pod Metadata
+# =============================================================================
+# -- Annotations to add to pods
+# Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+
+# -- Labels to add to pods (in addition to default selector labels)
+# Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+# =============================================================================
+# Security Context
+# =============================================================================
+# -- Pod-level security context (applies to all containers)
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# -- Container-level security context
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# =============================================================================
+# Service
+# Ref: https://kubernetes.io/docs/concepts/services-networking/service/
+# =============================================================================
+service:
+  # -- Service type: ClusterIP, NodePort, or LoadBalancer
+  type: ClusterIP
+  # -- Service port (external)
+  port: 80
+  # -- Container port the service forwards to
+  targetPort: 8080
+
+# =============================================================================
+# Ingress (Main - GKE Ingress (GCE L7 load balancer))
+# Ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
+# Ref: https://cloud.google.com/kubernetes-engine/docs/concepts/ingress
+# Health checks, session affinity, Cloud Armor and CDN attach through the BackendConfig
+# CRD (see backendConfig.* below), not through annotations. Swap className + annotations
+# for nginx, or use httproute.* for Gateway API instead.
+# =============================================================================
+ingress:
+  # -- Enable main ingress resource creation
+  enabled: false
+  # className: "gce"
+  # annotations:
+  #   kubernetes.io/ingress.class: gce            # or "gce-internal" for an internal LB
+  #   kubernetes.io/ingress.global-static-ip-name: my-static-ip
+  #   networking.gke.io/managed-certificates: my-managed-cert
+  #   networking.gke.io/v1beta1.FrontendConfig: my-frontend-config
+  #   # Per-Service BackendConfig is attached with a Service annotation, not here:
+  #   #   cloud.google.com/backend-config: '{"default":"my-backend-config"}'
+  #   # nginx alternative:
+  #   # nginx.ingress.kubernetes.io/rewrite-target: /
+  #   # cert-manager.io/cluster-issuer: letsencrypt-prod
+  # hosts:
+  #   - host: app.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+
+# =============================================================================
+# Ingress - Review (iOS App Review)
+# Separate ingress for iOS app store review traffic with version-specific routing
+# =============================================================================
+ingressReview:
+  # -- Enable review ingress (iOS app review with Client-Version header routing)
+  enabled: false
+
+# =============================================================================
+# Ingress - Health Check
+# Dedicated ingress for health endpoint without header conditions
+# =============================================================================
+ingressHealth:
+  # -- Enable health check ingress (no header conditions, high priority)
+  enabled: false
+  # className: "gce"
+  # annotations:
+  #   # same shape as ingress.annotations above
+  # hosts:
+  #   - host: app.example.com
+  #     paths:
+  #       - path: /health
+  #         pathType: Prefix
+
+# =============================================================================
+# Ingress - API Docs
+# Dedicated ingress for API documentation without header conditions
+# =============================================================================
+ingressApiDocs:
+  # -- Enable API docs ingress
+  enabled: false
+  # className: "gce"
+  # annotations:
+  #   # same shape as ingress.annotations above
+  # hosts:
+  #   - host: app.example.com
+  #     paths:
+  #       - path: /api-docs
+  #         pathType: Prefix
+
+# -- Number of old ReplicaSets to retain for rollback
+revisionHistoryLimit: 1
+
+# =============================================================================
+# Resources
+# Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+# =============================================================================
+# -- CPU/memory resource requests and limits
+resources: {}
+  # limits:
+  #   cpu: 1000m
+  #   memory: 2Gi
+  # requests:
+  #   cpu: 100m
+  #   memory: 1Gi
+
+# =============================================================================
+# Deployment Strategy
+# Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+# Only used by templates/deployment.yaml — IGNORED when rollout.enabled=true (the Rollout
+# renders instead; tune rollout.canary.{maxSurge,maxUnavailable} there).
+#
+# The two rollingUpdate knobs are independent, and the SAME semantics apply to a canary
+# Rollout's maxSurge/maxUnavailable:
+#   maxSurge       = pods allowed ABOVE desired -> drives NODE growth (Karpenter)
+#   maxUnavailable = pods allowed DOWN at once  -> drives rollout SPEED / capacity dip
+# Both combos below are zero-downtime (ready never hits 0); they differ in what they trade.
+# Tune by replica scale:
+#   | replica | recommended                    | why                                          |
+#   |---------|--------------------------------|----------------------------------------------|
+#   | 2~3     | maxSurge:1 + maxUnavailable:0~1 | surge-first keeps ~100% capacity, one extra  |
+#   |         | (absolute)                     | node briefly; % would round up to a big dip  |
+#   | 10~20   | maxSurge:0 + maxUnavailable:20~25% | NO new node (pods recycle into freed slots),|
+#   |         |                                | many swap at once = fast; ~75% stay serving  |
+# Keep maxSurge an ABSOLUTE small int (not a %) at small scale — a percentage surge spins up
+# many nodes at once. maxSurge:0 only becomes right once the replica count is high enough that
+# the capacity dip is negligible.
+# =============================================================================
+strategy:
+  # -- Enable custom deployment strategy (default: Kubernetes rolling update)
+  enabled: false
+  config:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: "50%"
+
+# =============================================================================
+# Argo Rollouts delivery (OPT-IN, disabled by default)
+# Ref: https://argo-rollouts.readthedocs.io/
+# When rollout.enabled=true, templates/rollout.yaml renders a Rollout INSTEAD of
+# templates/deployment.yaml (mutually exclusive). The pod template is shared with the
+# Deployment via the base-gcp.podTemplate helper so the two never drift, and the existing
+# Service (<fullname>) is reused as the active Service. rollout.strategy picks the delivery
+# mode (default "blueGreen"):
+#   blueGreen — all-at-once active-TG swap on promotion; uses previewService + the
+#     <fullname>-preview Service/Ingress for a pre-promote readiness gate.
+#   canary — add-before-remove pod swap in a single active TG (maxUnavailable: 0 keeps the
+#     TG from ever going 0-healthy, removing the promotion-time ELB 503 race). No preview
+#     Service/Ingress is rendered.
+#
+# Analysis-driven promotion / rollback (blueGreen) is OPT-IN and needs NO app change today,
+# using infra-layer signals: a Web smoke-probe of the preview host (prePromotion) and GKE load balancer
+# CloudWatch 5xx / latency on the active target group (postPromotion, auto-rollback).
+# When the app later exposes /metrics, swap these AnalysisTemplates for a Prometheus RED
+# template (richer pre+post analysis) — the wiring below keeps the same shape.
+# =============================================================================
+rollout:
+  # -- Render a Rollout instead of a Deployment
+  enabled: false
+  # -- Delivery strategy: "canary" or "blueGreen". REQUIRED when rollout.enabled=true —
+  # there is NO silent default, so every service that enables a Rollout must choose its type
+  # explicitly per environment (render fails if unset or unknown). blueGreen swaps the active
+  # target group all-at-once on promotion; canary swaps pods add-before-remove in a single
+  # active target group (maxUnavailable: 0 keeps ready at desired, so the TG is never
+  # 0-healthy — removes the promotion-time ELB 503 race). canary briefly coexists old+new
+  # pods (mixed traffic), so pick it only for services that tolerate a request hitting either
+  # version. Left empty here so an unset value is caught rather than silently defaulted.
+  strategy: ""
+  # -- Canary knobs (only used when strategy: canary). No steps / no trafficRouting:
+  # a single active target group with add-before-remove pod replacement. maxSurge /
+  # maxUnavailable follow the same replica-scale tuning as the Deployment `strategy` block
+  # above (2~3 -> surge-first absolute 1; 10~20 -> maxSurge:0 + maxUnavailable %).
+  canary:
+    # -- Extra pods allowed ABOVE desired during the roll (add-before-remove). Keep an
+    # absolute 1 (not a %) so only one extra node is ever provisioned at a time.
+    maxSurge: 1
+    # -- Pods allowed DOWN at once. 0 keeps ready == desired throughout, so the active GKE load balancer
+    # target group never dips to 0-healthy (this is what closes the 503 race).
+    maxUnavailable: 0
+  blueGreen:
+    # -- Keep the old ReplicaSet serving this long after promote, until the new pods are
+    # healthy in the active backend service (pairs with deregistration_delay=30s -> no 502)
+    scaleDownDelaySeconds: 30
+    # -- Auto-promote once the preview is Healthy and prePromotionAnalysis (if set) passes.
+    # false = manual `kubectl argo rollouts promote`.
+    autoPromotionEnabled: false
+    # -- Preview replica count. null = full-replica preview (pilot default); set a small int
+    # only to shrink the preview at large scale.
+    previewReplicaCount: null
+  # -- Optional pre/post promotion analysis. Each renders only when its templates list is set;
+  # templateName refs point at AnalysisTemplates authored per service in the same namespace.
+  analysis:
+    prePromotion:
+      # e.g. - templateName: <fullname>-preview-smoke
+      templates: []
+      args: []
+    postPromotion:
+      # e.g. - templateName: <fullname>-lb-error-rate
+      templates: []
+      args: []
+
+# =============================================================================
+# AnalysisTemplates — Blue-Green promotion gates / auto-rollback signals (OPT-IN)
+# Ref: https://argo-rollouts.readthedocs.io/en/stable/features/analysis/
+# Each list item renders one argoproj.io/v1alpha1/AnalysisTemplate (name + spec, rendered
+# verbatim). The rollout.analysis.{pre,post}Promotion.templates refs above point at these by
+# templateName. Empty by default -> renders nothing, so services without analysis stay
+# byte-identical. The chart is language-agnostic: each service supplies its own metrics per
+# service (Web smoke of the in-cluster preview Service, GKE load balancer CloudWatch on the active target
+# group, or a Prometheus RED query once the app exposes /metrics).
+# Example (authored in a per-service values file, not here):
+#   analysisTemplates:
+#     - name: <fullname>-preview-smoke     # prePromotion: probe the in-cluster preview Service
+#       spec:
+#         metrics:
+#           - name: preview-2xx
+#             provider:
+#               web:
+#                 url: http://<fullname>-preview/health
+#                 jsonPath: "{$.status}"
+#             successCondition: "result == 'ok'"
+#     - name: <fullname>-lb-error-rate    # postPromotion: Cloud Monitoring 5xx / latency metrics on the active backend service
+#       spec:
+#         metrics:
+#           - name: lb-5xx
+#             provider:
+#               cloudWatch:
+#                 region: eu-central-1
+#                 metricDataQueries: [ ... FILL(m,0) so no-data reads 0 ... ]
+#             failureCondition: "..."
+analysisTemplates: []
+
+# =============================================================================
+# Ingress - Preview (Blue-Green preview target)
+# Binds the <fullname>-preview Service to an backend service so preview pods satisfy the
+# namespace-level GKE load balancer readiness gate (else the rollout stalls) and give a real pre-promote
+# verification path. Renders only when rollout.enabled AND rollout.strategy=blueGreen AND
+# ingressPreview.enabled (canary has no preview target group, so it is skipped there).
+# Intended for an internal GKE load balancer.
+# =============================================================================
+ingressPreview:
+  # -- Enable the preview ingress (only meaningful with rollout.enabled + strategy: blueGreen)
+  enabled: false
+  # className: "gce"
+  # annotations:
+  #   # same shape as ingress.annotations above
+  # hosts:
+  #   - host: preview-app.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+
+# =============================================================================
+# Graceful Shutdown
+# Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+# On termination Kubernetes sends SIGTERM, then SIGKILL after the grace period.
+# For stateful workloads (e.g. game servers holding in-memory sessions), set a
+# grace period long enough to drain sessions, and add a preStop hook if the app
+# does not drain on SIGTERM by itself. Both are unset by default (k8s default:
+# 30s grace, no preStop) so existing apps are unaffected.
+# =============================================================================
+# -- Pod termination grace period in seconds (unset -> Kubernetes default of 30)
+# Increase for workloads that need time to drain connections/sessions on shutdown.
+terminationGracePeriodSeconds: ""
+  # terminationGracePeriodSeconds: 60
+
+# -- Container lifecycle hooks (e.g. preStop for connection/session draining)
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+lifecycle: {}
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "sleep 15"]
+
+# =============================================================================
+# Init Containers
+# Ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+# =============================================================================
+initContainers:
+  # -- Enable init containers (runs before main container starts)
+  enabled: false
+  # items:
+  #   - name: data-downloader
+  #     image: alpine:latest
+  #     imagePullPolicy: IfNotPresent
+  #     command: ["/bin/sh", "-c", "echo hello"]
+  #     env:
+  #       - name: FILE_SERVER_URL
+  #         value: "https://file-server.example.com"
+  #     volumeMounts:
+  #       - name: data-volume
+  #         mountPath: /app/data
+  #     resources:
+  #       requests:
+  #         memory: "64Mi"
+  #         cpu: "50m"
+  #       limits:
+  #         memory: "128Mi"
+  #         cpu: "100m"
+
+# =============================================================================
+# Probes
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+#
+# Probe order: Startup → (Liveness + Readiness in parallel)
+# - Startup:   Blocks Liveness/Readiness until app is fully started (prevents restart loops during slow init like a network file share mount)
+# - Liveness:  Restarts container on failure (detects deadlocks, unresponsive processes)
+# - Readiness: Removes Pod from Service endpoints on failure (blocks traffic without restart)
+#
+# Best practices:
+# - Separate /healthz (process alive) and /ready (external deps) endpoints
+# - Do NOT add external dependencies (DB, Redis) to Liveness — use Readiness instead
+# - Startup failureThreshold × periodSeconds must exceed max app startup time
+# =============================================================================
+# -- Startup probe configuration
+# Prevents Liveness/Readiness from running until app is fully initialized
+startupProbe: {}
+  # httpGet:
+  #   path: /health
+  #   port: http
+  # initialDelaySeconds: 5   # Wait before first probe after container start
+  # periodSeconds: 5          # Interval between probes
+  # failureThreshold: 30      # Consecutive failures before container restart (5s × 30 = max 150s wait)
+  # timeoutSeconds: 3          # Max wait for single probe response
+
+# -- Liveness probe configuration
+# initialDelaySeconds: Wait after Startup Probe succeeds before first liveness check
+# periodSeconds: Interval between probes (lower frequency = less overhead)
+# timeoutSeconds: Max wait for single probe response
+# failureThreshold: Consecutive failures → container restart
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+# -- Readiness probe configuration
+# initialDelaySeconds: Start checking readiness quickly after Startup Probe
+# periodSeconds: Interval between probes (higher frequency for traffic-sensitive routing)
+# timeoutSeconds: Max wait for single probe response
+# failureThreshold: Consecutive failures → remove Pod from Service Endpoint (no restart)
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+# =============================================================================
+# Autoscaling (HPA)
+# Ref: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# =============================================================================
+autoscaling:
+  # -- Enable Horizontal Pod Autoscaler
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# =============================================================================
+# PodDisruptionBudget
+# Ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+# Caps how many pods may be evicted during VOLUNTARY disruptions (node drain,
+# Karpenter consolidation, rollout). Required to make Karpenter
+# WhenEmptyOrUnderutilized consolidation zero-downtime — without it a node drain can
+# evict every replica of a service at once. Only meaningful at replica >= 2.
+# Set EITHER minAvailable OR maxUnavailable (not both). Disabled by default.
+# =============================================================================
+podDisruptionBudget:
+  # -- Enable a PodDisruptionBudget for this workload
+  enabled: false
+  # -- Minimum pods that must stay Ready during a voluntary disruption
+  minAvailable: 1
+  # -- Alternative to minAvailable (do not set both)
+  # maxUnavailable: 1
+
+# =============================================================================
+# RBAC
+# Ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+# =============================================================================
+rbac:
+  # -- Enable RBAC resource creation
+  # NOTE: Template files for Role/RoleBinding are not yet implemented.
+  enabled: false
+
+# =============================================================================
+# Scheduling
+# =============================================================================
+# -- Node selector for pod scheduling (e.g., target a specific GKE node pool)
+nodeSelector: {}
+  # cloud.google.com/gke-nodepool: my-nodepool
+
+tolerations: []
+
+affinity: {}
+
+# -- Pod topology spread constraints (opt-in; empty renders nothing).
+# Set per service to spread replicas across nodes/zones. Each entry is passed
+# through verbatim, so include a labelSelector matching the service's pods.
+topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: kubernetes.io/hostname
+  #   whenUnsatisfiable: DoNotSchedule
+  #   labelSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: my-service
+  #       app.kubernetes.io/instance: my-release
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+# -- Key-value pairs injected as container env vars
+envConfig: {}
+  # NODE_ENV: production
+
+# =============================================================================
+# ConfigMap
+# =============================================================================
+configs:
+  # -- Enable ConfigMap creation and envFrom injection
+  enabled: false
+  # items:
+  #   - name: app-config
+  #     datas:
+  #       NODE_ENV: "production"
+  #       SERVER_PORT: "8080"
+  #       REDIS_HOST: "redis.namespace.svc.cluster.local"
+  #       REDIS_PORT: "6379"
+
+# =============================================================================
+# External Secrets (ESO)
+# Ref: https://external-secrets.io/
+# Renders an ExternalSecret that pulls secret material from an external store
+# (e.g. Google Secret Manager via the cluster ClusterSecretStore) into a Secret named
+# "<fullname>-secret", which the Deployment consumes via envFrom.secretRef.
+# The secretRef is injected AFTER configMapRef, so secret-backed keys win on collision.
+# =============================================================================
+externalSecrets:
+  # -- Enable ExternalSecret creation and envFrom secretRef injection
+  enabled: false
+  # -- How often ESO reconciles the backing store into the Secret
+  # refreshInterval: "1h"
+  # secretStoreRef:
+  #   name: gcp-secretmanager
+  #   kind: ClusterSecretStore
+  # dataFrom:
+  #   - extract:
+  #       key: prod-my-project/app
+
+# =============================================================================
+# Extra Volumes & Mounts
+# For volumes not covered by the storage section above (secrets, configMaps, etc.)
+# =============================================================================
+# -- Additional volumes to add to the Deployment
+volumes: []
+  # - name: config-volume
+  #   configMap:
+  #     name: special-config
+
+# -- Additional volume mounts to add to the main container
+volumeMounts: []
+  # - name: config-volume
+  #   mountPath: /etc/config
+
+# =============================================================================
+# GKE BackendConfig (attaches to the Service)
+# Ref: https://cloud.google.com/kubernetes-engine/docs/how-to/ingress-configuration
+#
+# On GKE the L7 load balancer takes its health check, timeouts, session affinity,
+# Cloud Armor policy, CDN and IAP settings from this CRD — NOT from Ingress annotations.
+# Enabling it adds the cloud.google.com/backend-config annotation to this release's
+# Service automatically.
+# =============================================================================
+backendConfig:
+  # -- Enable BackendConfig creation and wire it to the Service
+  enabled: false
+  # timeoutSec: 30
+  # connectionDraining:
+  #   drainingTimeoutSec: 30
+  # healthCheck:
+  #   type: HTTP
+  #   requestPath: /health
+  #   port: 8080
+  #   checkIntervalSec: 10
+  #   timeoutSec: 5
+  #   healthyThreshold: 1
+  #   unhealthyThreshold: 3
+  # sessionAffinity:
+  #   affinityType: "GENERATED_COOKIE"
+  #   affinityCookieTtlSec: 3600
+  # securityPolicy:
+  #   name: my-cloud-armor-policy
+  # cdn:
+  #   enabled: true
+  #   cachePolicy:
+  #     includeHost: true
+  #     includeProtocol: true
+  #     includeQueryString: false
+  # iap:
+  #   enabled: true
+  #   oauthclientCredentials:
+  #     secretName: my-iap-secret
+  # logging:
+  #   enable: true
+  #   sampleRate: 1.0
+  # customRequestHeaders:
+  #   headers:
+  #     - "X-Client-Region:{client_region}"
+
+# =============================================================================
+# GKE FrontendConfig (attaches to the Ingress)
+# Ref: https://cloud.google.com/kubernetes-engine/docs/how-to/ingress-configuration
+#
+# HTTP-to-HTTPS redirect and the load balancer's SSL policy. Enabling it adds the
+# networking.gke.io/v1beta1.FrontendConfig annotation to the main Ingress automatically.
+# =============================================================================
+frontendConfig:
+  # -- Enable FrontendConfig creation and wire it to the Ingress
+  enabled: false
+  # redirectToHttps:
+  #   enabled: true
+  #   responseCodeName: MOVED_PERMANENTLY_DEFAULT
+  # sslPolicy: my-ssl-policy
+
+# =============================================================================
+# Gateway API HTTPRoute
+# Ref: https://gateway-api.sigs.k8s.io/
+# Cloud-neutral alternative to Ingress. Works with any GatewayClass — the managed cloud gateway classes, NGINX Gateway Fabric, Istio, and the managed GKE/AKS gateway classes.
+# Enable this OR ingress.*, not both, unless you are mid-migration.
+# =============================================================================
+httproute:
+  # -- Enable HTTPRoute resource creation
+  enabled: false
+  # annotations: {}
+  #
+  # parentRefs:
+  #   - name: my-gateway               # Gateway name
+  #     namespace: gateway-system      # Gateway namespace
+  #     # sectionName: https           # bind to a specific listener
+  #     # port: 443
+  #
+  # hostnames:
+  #   - app.example.com
+  #
+  # rules:
+  #   - matches:
+  #       - path:
+  #           type: PathPrefix         # PathPrefix | Exact | RegularExpression
+  #           value: /
+  #     # filters:                     # URLRewrite / RequestRedirect / header modifiers
+  #     # timeouts:
+  #     #   request: 60s
+  #     # backendRefs:                 # omit to auto-wire to this release's Service
+  #     #   - port: 80
+  #
+  # -- Optional companion HTTPRoute that 301s HTTP to HTTPS
+  httpsRedirect:
+    enabled: false
+    # statusCode: 301
+    # parentRefs:
+    #   - name: my-gateway
+    #     namespace: gateway-system
+    #     sectionName: http
+
+# =============================================================================
+# StorageClasses (OPT-IN, empty by default)
+# Ref: https://kubernetes.io/docs/concepts/storage/storage-classes/
+#
+# Most clusters have their storage classes provisioned by the platform team rather than
+# by an application chart, so nothing renders unless you populate this list.
+#
+# StorageClass is CLUSTER-SCOPED. Delivering it through ArgoCD requires the consuming
+# AppProject to whitelist it, or the sync is rejected and the ENTIRE Application rolls
+# back:
+#     clusterResourceWhitelist:
+#       - group: storage.k8s.io
+#         kind: StorageClass
+# =============================================================================
+storageClasses: []
+#   - name: filestore-csi
+#     provisioner: filestore.csi.storage.gke.io
+#     volumeBindingMode: WaitForFirstConsumer
+#     allowVolumeExpansion: true
+#     parameters:
+#       tier: standard
+#       network: default
+#   - name: standard-rwo
+#     provisioner: pd.csi.storage.gke.io
+#     volumeBindingMode: WaitForFirstConsumer
+#     allowVolumeExpansion: true
+#     parameters:
+#       type: pd-balanced
+#   - name: nfs-client
+#     provisioner: nfs.csi.k8s.io
+#     parameters:
+#       server: 192.168.1.5
+#       share: /export
+
+# =============================================================================
+# Persistent Storage (static PersistentVolumes + PersistentVolumeClaims)
+# Ref: https://kubernetes-csi.github.io/docs/drivers.html
+#
+# Driver-neutral. Each PV item picks a volume shape with `source`, which defaults to
+# "csi"; `driver` defaults to filestore.csi.storage.gke.io (Filestore). Set driver +
+# volumeHandle explicitly for any other CSI driver, or `source: nfs` for a plain export.
+#
+# Dynamic provisioning needs no PV here — declare only a PVC with a storageClassName.
+# =============================================================================
+storage:
+  persistentVolumes:
+    # -- Enable static PersistentVolume creation
+    enabled: false
+    # items:
+    #   # --- GCP Filestore (RWX)
+    #   - name: "filestore-pv"
+    #     driver: filestore.csi.storage.gke.io
+    #     volumeHandle: "modeInstance/us-central1-a/myinstance/myshare"
+    #     volumeAttributes:
+    #       ip: "10.0.0.2"
+    #       volume: myshare
+    #     storage: "1Ti"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "filestore-csi"
+    #
+    #   # --- GCP Persistent Disk (RWO block)
+    #   - name: "pd-pv"
+    #     driver: pd.csi.storage.gke.io
+    #     volumeHandle: "projects/my-proj/zones/us-central1-a/disks/mydisk"
+    #     fsType: ext4
+    #     storage: "100Gi"
+    #     accessModes: [ReadWriteOnce]
+    #     storageClassName: "standard-rwo"
+    #
+    #   # --- Plain NFS (no CSI driver in front of the share)
+    #   - name: "nfs-pv"
+    #     source: nfs
+    #     server: "192.168.1.5"
+    #     path: "/export/app"
+    #     storage: "10Gi"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "nfs-client"
+    #
+    #   # --- AWS EFS (RWX)
+    #   - name: "efs-pv"
+    #     driver: efs.csi.aws.com
+    #     volumeHandle: "fs-0123456789abcdef0::fsap-0123456789abcdef0"
+    #     storage: "5Gi"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "efs-sc"
+    #
+    #   # --- Azure Files (RWX). nodeStageSecretRef carries the storage account key.
+    #   - name: "azure-files-pv"
+    #     driver: file.csi.azure.com
+    #     volumeHandle: "rg#storageacct#myshare###"   # must be unique cluster-wide
+    #     volumeAttributes:
+    #       shareName: myshare
+    #     nodeStageSecretRef:
+    #       name: azure-storage-secret
+    #       namespace: default
+    #     mountOptions: ["dir_mode=0777", "file_mode=0777", "uid=1000"]
+    #     storage: "100Gi"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "azurefile-csi"
+    #
+    #   # --- Azure Disk (RWO block)
+    #   - name: "azure-disk-pv"
+    #     driver: disk.csi.azure.com
+    #     volumeHandle: "/subscriptions/SUB/resourceGroups/RG/providers/Microsoft.Compute/disks/mydisk"
+    #     fsType: ext4
+    #     storage: "32Gi"
+    #     accessModes: [ReadWriteOnce]
+    #     storageClassName: "managed-csi"
+
+  persistentVolumeClaims:
+    # -- Enable PersistentVolumeClaim creation
+    enabled: false
+    # items:
+    #   - name: "app-data-pvc"
+    #     accessModes:
+    #       - ReadWriteMany
+    #     storageClassName: "efs-sc"
+    #     storage: "5Gi"
+    #     mountPath: "/app/data"           # Auto-mounted to main container
+    #     selector:                        # Optional: bind to specific PV
+    #       volumeName: "app-data-pv"
+
+# =============================================================================
+# Extra Objects
+# Generic escape hatch for arbitrary extra manifests rendered alongside the app.
+# Each item is a full manifest, passed through `tpl` with the root context so it
+# may reference release values. Used e.g. for an OpenTelemetry Instrumentation CR
+# co-located with the pod auto-instrumentation annotation. Empty by default.
+# =============================================================================
+extraObjects: []
+#   - apiVersion: opentelemetry.io/v1alpha1
+#     kind: Instrumentation
+#     metadata:
+#       name: my-instrumentation
+#     spec:
+#       exporter:
+#         endpoint: http://otel-collector-opentelemetry-collector.monitoring:4317

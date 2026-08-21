@@ -1,0 +1,43 @@
+{{- /*
+  Optional StorageClass creation. Empty by default — most clusters have their storage
+  classes provisioned by the platform team, not by an application chart.
+
+  StorageClass is CLUSTER-SCOPED. When this chart is delivered through ArgoCD, the
+  consuming AppProject must list it in clusterResourceWhitelist:
+
+      clusterResourceWhitelist:
+        - group: storage.k8s.io
+          kind: StorageClass
+
+  Without that entry ArgoCD rejects the resource as disallowed and rolls back the ENTIRE
+  Application — not just this manifest.
+*/}}
+{{- range .Values.storageClasses }}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "base-gcp.labels" $ | nindent 4 }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+provisioner: {{ required "storageClasses[].provisioner is required" .provisioner }}
+reclaimPolicy: {{ .reclaimPolicy | default "Delete" }}
+volumeBindingMode: {{ .volumeBindingMode | default "Immediate" }}
+allowVolumeExpansion: {{ .allowVolumeExpansion | default false }}
+{{- with .parameters }}
+parameters:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .mountOptions }}
+mountOptions:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .allowedTopologies }}
+allowedTopologies:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

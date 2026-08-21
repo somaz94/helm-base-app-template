@@ -1,0 +1,43 @@
+{{- if .Values.ingressHealth.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "base-azure.fullname" . }}-health
+  labels:
+    {{- include "base-azure.labels" . | nindent 4 }}
+  {{- with .Values.ingressHealth.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingressHealth.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingressHealth.tls }}
+  tls:
+    {{- range .Values.ingressHealth.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingressHealth.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- with .pathType }}
+            pathType: {{ . }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ include "base-azure.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,30 @@
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "blueGreen") }}
+# Preview Service for the Blue-Green Rollout. Only rendered under the blueGreen strategy —
+# canary uses a single active target group and has no previewService, so this is skipped. Argo Rollouts points its previewService at
+# this Service and injects rollouts-pod-template-hash into the selector so it targets the
+# new (preview) ReplicaSet only. Backed by templates/ingress-preview.yaml so preview pods
+# register into a preview backend pool and satisfy the namespace-level readiness gate.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "base-azure.fullname" . }}-preview
+  labels:
+    {{- include "base-azure.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    # selectorLabels only — intentionally NO `version` label (unlike the active Service).
+    # Argo Rollouts injects rollouts-pod-template-hash into this selector to target the new
+    # (preview) ReplicaSet; the hash is the blue/green discriminator, so the static `version`
+    # label is not needed here (and adding it would not help — both ReplicaSets share it).
+    {{- include "base-azure.selectorLabels" . | nindent 4 }}
+{{- end }}

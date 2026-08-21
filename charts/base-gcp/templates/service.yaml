@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "base-gcp.fullname" . }}
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+  {{- if or .Values.service.annotations .Values.backendConfig.enabled }}
+  annotations:
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- /* A BackendConfig attaches to the Service, not the Ingress. */}}
+    {{- if .Values.backendConfig.enabled }}
+    cloud.google.com/backend-config: '{"default":"{{ include "base-gcp.fullname" . }}"}'
+    {{- end }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "base-gcp.selectorLabels" . | nindent 4 }}
+    {{- if .Values.version }}
+    version: {{ .Values.version | toString | quote }}
+    {{- end }}

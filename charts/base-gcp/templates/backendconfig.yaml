@@ -1,0 +1,53 @@
+{{- /*
+  GKE BackendConfig — where the GCE L7 load balancer gets its health check, timeouts,
+  session affinity, Cloud Armor policy, CDN and IAP settings. These are NOT Ingress
+  annotations on GKE.
+
+  A BackendConfig attaches to a SERVICE, not to the Ingress. This chart wires it for you
+  when backendConfig.enabled is true: service.yaml gains the
+  `cloud.google.com/backend-config` annotation pointing at this object.
+*/}}
+{{- if .Values.backendConfig.enabled }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "base-gcp.fullname" . }}
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.backendConfig.timeoutSec }}
+  timeoutSec: {{ . }}
+  {{- end }}
+  {{- with .Values.backendConfig.connectionDraining }}
+  connectionDraining:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.healthCheck }}
+  healthCheck:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.sessionAffinity }}
+  sessionAffinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.securityPolicy }}
+  securityPolicy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.cdn }}
+  cdn:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.iap }}
+  iap:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.logging }}
+  logging:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.backendConfig.customRequestHeaders }}
+  customRequestHeaders:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

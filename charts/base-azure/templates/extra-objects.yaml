@@ -1,0 +1,11 @@
+# Generic escape hatch: render arbitrary extra manifests supplied via .Values.extraObjects.
+# Each list item is a full manifest and is passed through `tpl` with the root context ($),
+# so it may reference release values / helpers. Used e.g. for the OpenTelemetry Instrumentation
+# CR co-located with the pod's auto-instrumentation annotation. Empty by default (no-op).
+# NOTE: every new kind added via extraObjects MUST also be granted in the consuming AppProject's
+# namespaceResourceWhitelist (your AppProject manifest) or ArgoCD fails the sync as a
+# disallowed resource.
+{{- range .Values.extraObjects }}
+---
+{{ tpl (toYaml .) $ }}
+{{- end }}

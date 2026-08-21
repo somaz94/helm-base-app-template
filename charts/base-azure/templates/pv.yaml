@@ -1,0 +1,63 @@
+{{- if .Values.storage.persistentVolumes.enabled }}
+{{- range .Values.storage.persistentVolumes.items }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "base-azure.labels" $ | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .storage }}
+  volumeMode: {{ .volumeMode | default "Filesystem" }}
+  accessModes:
+    {{- toYaml .accessModes | nindent 4 }}
+  persistentVolumeReclaimPolicy: {{ .reclaimPolicy | default "Retain" }}
+  storageClassName: {{ .storageClassName }}
+  {{- with .mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- /*
+    Volume source. `source` selects the shape and defaults to "csi".
+      csi — any CSI driver: file.csi.azure.com, disk.csi.azure.com,
+            filestore.csi.storage.gke.io, pd.csi.storage.gke.io, efs.csi.aws.com, ...
+            `driver` defaults to file.csi.azure.com.
+      nfs — a plain NFS export, for shares with no CSI driver in front of them.
+    Dynamic provisioning needs no PV at all — declare only a PVC with a storageClassName.
+  */}}
+  {{- if eq (.source | default "csi") "nfs" }}
+  nfs:
+    server: {{ required "nfs source requires .server" .server }}
+    path: {{ required "nfs source requires .path" .path }}
+    readOnly: {{ .readOnly | default false }}
+  {{- else }}
+  csi:
+    driver: {{ .driver | default "file.csi.azure.com" }}
+    volumeHandle: {{ required "csi source requires .volumeHandle" .volumeHandle }}
+    {{- if .readOnly }}
+    readOnly: {{ .readOnly }}
+    {{- end }}
+    {{- if .fsType }}
+    fsType: {{ .fsType }}
+    {{- end }}
+    {{- if .volumeAttributes }}
+    volumeAttributes:
+      {{- toYaml .volumeAttributes | nindent 6 }}
+    {{- end }}
+    {{- /*
+      nodeStageSecretRef: required by drivers that authenticate per-volume — notably
+      file.csi.azure.com, which reads the storage account key from this Secret.
+    */}}
+    {{- with .nodeStageSecretRef }}
+    nodeStageSecretRef:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .nodePublishSecretRef }}
+    nodePublishSecretRef:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

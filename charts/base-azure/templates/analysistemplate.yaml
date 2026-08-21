@@ -1,0 +1,18 @@
+{{- range .Values.analysisTemplates }}
+---
+# AnalysisTemplate for the Blue-Green Rollout promotion gate / auto-rollback signal.
+# Rendered verbatim from the analysisTemplates list so the chart stays language-agnostic:
+# each service supplies its own metrics — a Web smoke-probe of the in-cluster preview Service
+# (prePromotion), Application Gateway 5xx / latency metrics on the active backend pool (postPromotion,
+# auto-rollback), or — once the app exposes /metrics — a Prometheus RED query. Referenced from
+# rollout.analysis.{pre,post}Promotion.templates by templateName. Renders nothing when the list
+# is empty (default), so services without analysis stay byte-identical.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "base-azure.labels" $ | nindent 4 }}
+spec:
+  {{- toYaml .spec | nindent 2 }}
+{{- end }}

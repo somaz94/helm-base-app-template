@@ -1,0 +1,22 @@
+{{- /*
+  GKE FrontendConfig — HTTP-to-HTTPS redirect and the SSL policy for the load balancer's
+  frontend. Attaches to the INGRESS through the
+  `networking.gke.io/v1beta1.FrontendConfig` annotation, which this chart adds to
+  ingress.annotations for you when frontendConfig.enabled is true.
+*/}}
+{{- if .Values.frontendConfig.enabled }}
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: {{ include "base-gcp.fullname" . }}
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.frontendConfig.redirectToHttps }}
+  redirectToHttps:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.frontendConfig.sslPolicy }}
+  sslPolicy: {{ . }}
+  {{- end }}
+{{- end }}

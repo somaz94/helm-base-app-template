@@ -1,0 +1,110 @@
+{{- if .Values.httproute.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "base-gcp.fullname" . }}
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+  {{- with .Values.httproute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- range .Values.httproute.parentRefs }}
+    - name: {{ .name }}
+      {{- with .namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      {{- with .sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+      {{- with .port }}
+      port: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- with .Values.httproute.hostnames }}
+  hostnames:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.httproute.rules }}
+    - backendRefs:
+        {{- if .backendRefs }}
+        {{- range .backendRefs }}
+        - name: {{ .name | default (include "base-gcp.fullname" $) }}
+          port: {{ .port | default $.Values.service.port }}
+          {{- with .weight }}
+          weight: {{ . }}
+          {{- end }}
+        {{- end }}
+        {{- else }}
+        - name: {{ include "base-gcp.fullname" $ }}
+          port: {{ $.Values.service.port }}
+        {{- end }}
+      {{- with .matches }}
+      matches:
+        {{- range . }}
+        - path:
+            type: {{ .path.type | default "PathPrefix" }}
+            value: {{ .path.value | default "/" | quote }}
+          {{- with .headers }}
+          headers:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .queryParams }}
+          queryParams:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .method }}
+          method: {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- with .filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .timeouts }}
+      timeouts:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+{{- if and .Values.httproute.enabled .Values.httproute.httpsRedirect.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "base-gcp.fullname" . }}-https-redirect
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    {{- range .Values.httproute.httpsRedirect.parentRefs }}
+    - name: {{ .name }}
+      {{- with .namespace }}
+      namespace: {{ . }}
+      {{- end }}
+      {{- with .sectionName }}
+      sectionName: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- with .Values.httproute.hostnames }}
+  hostnames:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: {{ .Values.httproute.httpsRedirect.statusCode | default 301 }}
+            {{- with .Values.httproute.httpsRedirect.port }}
+            port: {{ . }}
+            {{- end }}
+{{- end }}

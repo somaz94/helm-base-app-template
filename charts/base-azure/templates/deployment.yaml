@@ -1,0 +1,22 @@
+{{- if not .Values.rollout.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "base-azure.fullname" . }}
+  labels:
+    {{- include "base-azure.labels" . | nindent 4 }}
+spec:
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if .Values.strategy.enabled }}
+  strategy:
+    {{- toYaml .Values.strategy.config | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "base-azure.selectorLabels" . | nindent 6 }}
+  template:
+{{- include "base-azure.podTemplate" . }}
+{{- end }}

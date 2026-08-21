@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "base-azure.fullname" . }}
+  labels:
+    {{- include "base-azure.labels" . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  annotations:
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "base-azure.selectorLabels" . | nindent 4 }}
+    {{- if .Values.version }}
+    version: {{ .Values.version | toString | quote }}
+    {{- end }}

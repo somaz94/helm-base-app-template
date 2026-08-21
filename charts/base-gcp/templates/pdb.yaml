@@ -1,0 +1,18 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "base-gcp.fullname" . }}
+  labels:
+    {{- include "base-gcp.labels" . | nindent 4 }}
+spec:
+  # Set EITHER minAvailable OR maxUnavailable (not both). minAvailable wins if both set.
+  {{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- else if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "base-gcp.selectorLabels" . | nindent 6 }}
+{{- end }}

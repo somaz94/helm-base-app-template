@@ -1,0 +1,25 @@
+{{- if .Values.storage.persistentVolumeClaims.enabled }}
+{{- range .Values.storage.persistentVolumeClaims.items }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "base-azure.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .accessModes | nindent 4 }}
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: {{ .storage }}
+  storageClassName: {{ .storageClassName }}
+  {{- if .selector }}
+  {{- if .selector.volumeName }}
+  volumeName: {{ .selector.volumeName }}  # Static PV binding
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

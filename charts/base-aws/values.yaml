@@ -564,25 +564,89 @@ volumeMounts: []
   #   mountPath: /etc/config
 
 # =============================================================================
-# AWS EFS Storage
+# Persistent Storage (static PersistentVolumes + PersistentVolumeClaims)
 # Ref: https://github.com/kubernetes-sigs/aws-efs-csi-driver
-# Uses EFS CSI driver for persistent storage on AWS EKS.
-# Each PV item requires its own fileSystemId and optional accessPointId.
+#
+# Driver-neutral. Each PV item picks a volume shape with `source`, which defaults to
+# "csi"; `driver` defaults to efs.csi.aws.com and `volumeHandle` falls back to the EFS
+# handle assembled from fileSystemId (+ optional accessPointId), so EFS values written
+# against the earlier chart keep rendering unchanged. Set driver/volumeHandle explicitly
+# for Azure Files/Disk, GCP Filestore/PD, or any other CSI driver; use `source: nfs` for
+# a plain export.
+#
+# Dynamic provisioning needs no PV here at all — declare only a PVC with a
+# storageClassName and let the provisioner create the volume.
+#
+# The key is still named `efs` for backward compatibility with existing values files.
 # =============================================================================
 efs:
   persistentVolumes:
-    # -- Enable EFS PersistentVolume creation
+    # -- Enable static PersistentVolume creation
     enabled: false
     # items:
+    #   # --- AWS EFS (shorthand: volumeHandle assembled from fileSystemId[::accessPointId])
     #   - name: "app-data-pv"
-    #     fileSystemId: "fs-0123456789abcdef0"       # EFS file system ID (required)
-    #     accessPointId: "fsap-0123456789abcdef0"     # EFS access point ID (optional)
+    #     fileSystemId: "fs-0123456789abcdef0"        # EFS file system ID
+    #     accessPointId: "fsap-0123456789abcdef0"     # optional; pins its own path
+    #     # subPath: "/logs"                          # only meaningful without an access point
     #     storage: "5Gi"
     #     volumeMode: Filesystem
     #     accessModes:
     #       - ReadWriteMany
     #     reclaimPolicy: Retain
     #     storageClassName: "efs-sc"
+    #
+    #   # --- Azure Files (RWX). nodeStageSecretRef carries the storage account key.
+    #   - name: "azure-files-pv"
+    #     driver: file.csi.azure.com
+    #     volumeHandle: "rg#storageacct#myshare###"   # must be unique cluster-wide
+    #     volumeAttributes:
+    #       shareName: myshare
+    #     nodeStageSecretRef:
+    #       name: azure-storage-secret
+    #       namespace: default
+    #     mountOptions: ["dir_mode=0777", "file_mode=0777", "uid=1000"]
+    #     storage: "100Gi"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "azurefile-csi"
+    #
+    #   # --- Azure Disk (RWO block)
+    #   - name: "azure-disk-pv"
+    #     driver: disk.csi.azure.com
+    #     volumeHandle: "/subscriptions/SUB/resourceGroups/RG/providers/Microsoft.Compute/disks/mydisk"
+    #     fsType: ext4
+    #     storage: "32Gi"
+    #     accessModes: [ReadWriteOnce]
+    #     storageClassName: "managed-csi"
+    #
+    #   # --- GCP Filestore (RWX)
+    #   - name: "gcp-filestore-pv"
+    #     driver: filestore.csi.storage.gke.io
+    #     volumeHandle: "modeInstance/us-central1-a/myinstance/myshare"
+    #     volumeAttributes:
+    #       ip: "10.0.0.2"
+    #       volume: myshare
+    #     storage: "1Ti"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "filestore-csi"
+    #
+    #   # --- GCP Persistent Disk (RWO block)
+    #   - name: "gcp-pd-pv"
+    #     driver: pd.csi.storage.gke.io
+    #     volumeHandle: "projects/my-proj/zones/us-central1-a/disks/mydisk"
+    #     fsType: ext4
+    #     storage: "100Gi"
+    #     accessModes: [ReadWriteOnce]
+    #     storageClassName: "standard-rwo"
+    #
+    #   # --- Plain NFS (no CSI driver in front of the share)
+    #   - name: "nfs-pv"
+    #     source: nfs
+    #     server: "192.168.1.5"
+    #     path: "/export/app"
+    #     storage: "10Gi"
+    #     accessModes: [ReadWriteMany]
+    #     storageClassName: "nfs-client"
 
   persistentVolumeClaims:
     # -- Enable EFS PersistentVolumeClaim creation

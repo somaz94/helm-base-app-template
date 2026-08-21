@@ -6,7 +6,7 @@ On-premises Helm chart for Kubernetes applications.
 
 ## Overview
 
-Generic Helm chart designed for on-premises Kubernetes clusters with NFS storage, nginx ingress, and cert-manager integration. Used by ArgoCD ApplicationSet with Matrix Generator pattern.
+Generic Helm chart for self-managed / on-premises Kubernetes clusters: NFS or any CSI driver for storage, nginx Ingress or Gateway API for traffic, and cert-manager integration. Used by ArgoCD ApplicationSet with the Matrix Generator pattern.
 
 <br/>
 
@@ -20,7 +20,8 @@ Generic Helm chart designed for on-premises Kubernetes clusters with NFS storage
 | `serviceaccount.yaml` | ServiceAccount | Optional SA with annotations |
 | `hpa.yaml` | HorizontalPodAutoscaler | CPU/memory-based autoscaling (v2) |
 | `configmap.yaml` | ConfigMap | Multiple ConfigMaps with envFrom injection |
-| `pv.yaml` | PersistentVolume | NFS-backed PVs (multiple items) |
+| `pv.yaml` | PersistentVolume | Static PVs — NFS export or any CSI driver |
+| `storageclass.yaml` | StorageClass | Optional cluster-scoped StorageClass creation |
 | `pvc.yaml` | PersistentVolumeClaim | PVCs with optional PV selector binding |
 | `imagePullSecret.yaml` | Secret | Docker registry credentials (dockerconfigjson) |
 | `certificate.yaml` | Certificate | cert-manager Certificate (Route53/CloudDNS) |
@@ -36,7 +37,7 @@ Generic Helm chart designed for on-premises Kubernetes clusters with NFS storage
 - **Version-based routing**: `version` label on pods, Service selector filters by version for canary/blue-green
 - **Init containers**: Configurable init containers with shared volumes and env inheritance
 - **EmptyDir volumes**: Ephemeral volumes with size limits and medium support
-- **Multiple PV/PVC**: Array-based creation of NFS PersistentVolumes and PersistentVolumeClaims
+- **Any storage backend**: static PVs from an NFS export or any CSI driver, dynamic provisioning via `storageClassName`, and optional `StorageClass` creation
 - **Extra volumes**: Escape hatch for volumes/mounts not covered by built-in types
 - **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables
 - **cert-manager**: Certificate resource with automated cleanup CronJob
@@ -74,7 +75,8 @@ Generic Helm chart designed for on-premises Kubernetes clusters with NFS storage
 | `configs.enabled` | `false` | Enable ConfigMap creation |
 | `initContainers.enabled` | `false` | Enable init containers |
 | `emptyDirVolumes.enabled` | `false` | Enable emptyDir volumes |
-| `persistentVolumes.enabled` | `false` | Enable NFS PV creation |
+| `persistentVolumes.enabled` | `false` | Enable static PV creation |
+| `storageClasses` | `[]` | Optional cluster-scoped StorageClass creation |
 | `persistentVolumeClaims.enabled` | `false` | Enable PVC creation |
 | `certificate.enabled` | `false` | Enable cert-manager Certificate |
 | `certCleanup.enabled` | `false` | Enable cert cleanup CronJob |
@@ -95,6 +97,27 @@ source:
 ```
 
 `values.yaml` provides defaults; environment-specific values files override per deployment.
+
+<br/>
+
+## Storage
+
+`persistentVolumes.items[]` takes a `source` of `nfs` (the default, matching this chart's
+original behaviour) or `csi`. Existing NFS values files need no change.
+
+| Field | Applies to | Description |
+|-------|-----------|-------------|
+| `source` | both | `nfs` (default) or `csi` |
+| `server` / `path` | `nfs` | The export to mount |
+| `driver` / `volumeHandle` | `csi` | Driver name and its volume identifier |
+| `volumeAttributes` | `csi` | Driver-specific attributes |
+| `nodeStageSecretRef` | `csi` | Per-volume credentials, where the driver needs them |
+| `mountOptions`, `readOnly`, `fsType` | both | Passed through as-is |
+
+Dynamic provisioning needs no PV at all — declare a PVC with a `storageClassName` and let the
+provisioner create the volume. `storageClasses` can create the classes themselves; note that
+`StorageClass` is **cluster-scoped**, so an ArgoCD AppProject delivering it must whitelist
+`storage.k8s.io/StorageClass` or the whole Application is rejected.
 
 <br/>
 

@@ -277,6 +277,24 @@
                 }
             }
         },
+        "storageClasses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "provisioner": { "type": "string" },
+                    "reclaimPolicy": { "type": "string", "enum": ["Retain", "Delete"] },
+                    "volumeBindingMode": { "type": "string", "enum": ["Immediate", "WaitForFirstConsumer"] },
+                    "allowVolumeExpansion": { "type": "boolean" },
+                    "parameters": { "type": "object" },
+                    "annotations": { "type": "object" },
+                    "mountOptions": { "type": "array", "items": { "type": "string" } },
+                    "allowedTopologies": { "type": "array" }
+                },
+                "required": ["name", "provisioner"]
+            }
+        },
         "persistentVolumes": {
             "type": "object",
             "properties": {
@@ -298,10 +316,24 @@
                                 "enum": ["Retain", "Delete", "Recycle"]
                             },
                             "storageClassName": { "type": "string" },
+                            "annotations": { "type": "object" },
+                            "mountOptions": { "type": "array", "items": { "type": "string" } },
+                            "readOnly": { "type": "boolean" },
+                            "source": { "type": "string", "enum": ["nfs", "csi"] },
                             "path": { "type": "string" },
-                            "server": { "type": "string" }
+                            "server": { "type": "string" },
+                            "driver": { "type": "string" },
+                            "volumeHandle": { "type": "string" },
+                            "volumeAttributes": { "type": "object" },
+                            "nodeStageSecretRef": { "type": "object" },
+                            "nodePublishSecretRef": { "type": "object" },
+                            "fsType": { "type": "string" }
                         },
-                        "required": ["name", "storage", "accessModes", "storageClassName", "path", "server"]
+                        "required": ["name", "storage", "accessModes", "storageClassName"],
+                        "anyOf": [
+                            { "required": ["server", "path"] },
+                            { "required": ["driver", "volumeHandle"] }
+                        ]
                     }
                 }
             }

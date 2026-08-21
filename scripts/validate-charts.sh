@@ -110,6 +110,25 @@ for c in base-aws base-azure base-gcp; do
     --set 'externalSecrets.dataFrom[0].extract.key=prod/app' \
     --set 'storageClasses[0].name=sc-test' --set 'storageClasses[0].provisioner=x.csi.io'
 done
+# `base` gained a CSI source and StorageClass creation alongside its original NFS shape;
+# cover both so a regression in either is caught.
+check base "nfs + csi + storageclass" --set image.tag=v1 \
+  --set persistentVolumes.enabled=true \
+  --set 'persistentVolumes.items[0].name=nfs-pv' \
+  --set 'persistentVolumes.items[0].storage=5Gi' \
+  --set 'persistentVolumes.items[0].accessModes[0]=ReadWriteMany' \
+  --set 'persistentVolumes.items[0].storageClassName=nfs-client' \
+  --set 'persistentVolumes.items[0].path=/export/app' \
+  --set 'persistentVolumes.items[0].server=192.168.1.5' \
+  --set 'persistentVolumes.items[1].name=csi-pv' \
+  --set 'persistentVolumes.items[1].source=csi' \
+  --set 'persistentVolumes.items[1].driver=rook-ceph.rbd.csi.ceph.com' \
+  --set 'persistentVolumes.items[1].volumeHandle=0001-0009-abc' \
+  --set 'persistentVolumes.items[1].storage=20Gi' \
+  --set 'persistentVolumes.items[1].accessModes[0]=ReadWriteOnce' \
+  --set 'persistentVolumes.items[1].storageClassName=rook-ceph-block' \
+  --set 'storageClasses[0].name=sc-test' --set 'storageClasses[0].provisioner=nfs.csi.k8s.io'
+
 # GKE-only CRDs, both with and without a populated spec: an enabled-but-unconfigured
 # BackendConfig used to render spec: null, which the CRD schema rejects.
 check base-gcp "gke config (empty)" --set image.tag=v1 \

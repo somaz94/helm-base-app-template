@@ -19,10 +19,47 @@ spec:
     storage: {{ $persistentVolume.storage }}
   accessModes:
     {{- toYaml $persistentVolume.accessModes | nindent 4 }}
-  volumeMode: {{ $persistentVolume.volumeMode }}
-  persistentVolumeReclaimPolicy: {{ $persistentVolume.reclaimPolicy }}
+  volumeMode: {{ $persistentVolume.volumeMode | default "Filesystem" }}
+  persistentVolumeReclaimPolicy: {{ $persistentVolume.reclaimPolicy | default "Retain" }}
+  {{- with $persistentVolume.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- /*
+    Volume source. `source` defaults to "nfs" — the on-prem shape this chart has always
+    rendered — so every existing values file keeps producing identical output. Set
+    `source: csi` with `driver` + `volumeHandle` to attach a CSI-backed volume instead
+    (rook-ceph, TopoLVM, an on-prem vendor driver, ...).
+  */}}
+  {{- if eq ($persistentVolume.source | default "nfs") "csi" }}
+  csi:
+    driver: {{ required "csi source requires .driver" $persistentVolume.driver }}
+    volumeHandle: {{ required "csi source requires .volumeHandle" $persistentVolume.volumeHandle }}
+    {{- if $persistentVolume.readOnly }}
+    readOnly: {{ $persistentVolume.readOnly }}
+    {{- end }}
+    {{- if $persistentVolume.fsType }}
+    fsType: {{ $persistentVolume.fsType }}
+    {{- end }}
+    {{- with $persistentVolume.volumeAttributes }}
+    volumeAttributes:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with $persistentVolume.nodeStageSecretRef }}
+    nodeStageSecretRef:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with $persistentVolume.nodePublishSecretRef }}
+    nodePublishSecretRef:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- else }}
   nfs:
-    path: {{ $persistentVolume.path }}
-    server: {{ $persistentVolume.server }}
+    path: {{ required "nfs source requires .path" $persistentVolume.path }}
+    server: {{ required "nfs source requires .server" $persistentVolume.server }}
+    {{- if $persistentVolume.readOnly }}
+    readOnly: {{ $persistentVolume.readOnly }}
+    {{- end }}
+  {{- end }}
 {{- end }}
 {{- end }}

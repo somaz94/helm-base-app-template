@@ -364,6 +364,30 @@ emptyDirVolumes:
   #     # medium: "Memory"  # Use tmpfs (RAM-backed)
 
 # =============================================================================
+# StorageClasses (OPT-IN, empty by default)
+# Ref: https://kubernetes.io/docs/concepts/storage/storage-classes/
+#
+# Most clusters have their storage classes provisioned by the platform team rather than by
+# an application chart, so nothing renders unless you populate this list.
+#
+# StorageClass is CLUSTER-SCOPED. Delivering it through ArgoCD requires the consuming
+# AppProject to whitelist it, or the sync is rejected and the ENTIRE Application rolls back:
+#     clusterResourceWhitelist:
+#       - group: storage.k8s.io
+#         kind: StorageClass
+# =============================================================================
+storageClasses: []
+#   - name: nfs-client
+#     provisioner: nfs.csi.k8s.io
+#     reclaimPolicy: Retain
+#     parameters:
+#       server: 192.168.1.5
+#       share: /export
+#   - name: local-path
+#     provisioner: rancher.io/local-path
+#     volumeBindingMode: WaitForFirstConsumer
+
+# =============================================================================
 # Persistent Volumes (NFS)
 # Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
 # NOTE: Currently hardcoded to NFS backend only

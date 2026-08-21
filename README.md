@@ -8,11 +8,9 @@ A base Helm chart template for deploying applications to Kubernetes, using ArgoC
 
 ```
 helm-base-app-template/
-├── appsets/                          # ApplicationSet definitions
-│   ├── dev-applicationset.yaml
-│   ├── qa-applicationset.yaml
-│   ├── alpha-applicationset.yaml
-│   └── prod-applicationset.yaml
+├── appsets/                          # ApplicationSet definitions (examples)
+│   ├── dev-my-project-applicationset.yaml
+│   └── qa1-my-project-applicationset.yaml
 ├── charts/                           # Helm charts
 │   ├── base/                         # On-premises chart (NFS, nginx ingress)
 │   │   ├── templates/
@@ -22,12 +20,10 @@ helm-base-app-template/
 │       ├── templates/
 │       ├── values.yaml
 │       └── values.schema.json
-├── values/                           # Environment-specific Helm values
-│   └── somaz/
-│       ├── admin/
-│       ├── auth/
-│       ├── backend/
-│       └── batch/
+├── values/                           # Environment-specific Helm values — you create this
+│   └── {project}/
+│       └── {service}/
+│           └── {env}.values.yaml
 ├── .github/workflows/                # CI/CD (GitLab mirror)
 └── LICENSE
 ```
@@ -103,12 +99,13 @@ Helm chart for AWS EKS environments with EFS storage and ALB ingress. See [chart
 
 ### ApplicationSet List
 
+Two example ApplicationSets ship with this template. Copy one, point `repoURL` at your
+own repository, and rename `{project}` to your project.
+
 | ApplicationSet | Environment | Chart | Services |
 |----------------|-------------|-------|----------|
-| dev-somaz | dev1, dev2 | base | admin, auth, backend, batch |
-| qa-somaz | qa1, qa2 | base | admin, auth, backend, batch |
-| alpha-somaz | alpha | base-aws | admin, auth, backend, batch |
-| prod-somaz | prod-a, prod-b | base | admin, auth, backend, batch |
+| dev-my-project | dev1 | base | auto-discovered from `values/my-project/*` |
+| qa1-my-project | qa1 | base | `game`, `admin`, `app-admin` (explicit paths) |
 
 <br/>
 
@@ -120,10 +117,10 @@ Helm chart for AWS EKS environments with EFS storage and ALB ingress. See [chart
 
 ```bash
 # Create directory
-mkdir -p values/somaz/new-service
+mkdir -p values/my-project/new-service
 
 # Create environment values files (reference existing services)
-cp values/somaz/admin/dev1.values.yaml values/somaz/new-service/dev1.values.yaml
+cp values/my-project/admin/dev1.values.yaml values/my-project/new-service/dev1.values.yaml
 # Modify image, ports, environment variables, etc.
 ```
 
@@ -137,7 +134,7 @@ cp values/somaz/admin/dev1.values.yaml values/somaz/new-service/dev1.values.yaml
 
 ```bash
 # Add new environment values for each service
-cp values/somaz/admin/dev1.values.yaml values/somaz/admin/dev2.values.yaml
+cp values/my-project/admin/dev1.values.yaml values/my-project/admin/dev2.values.yaml
 # Modify for the target environment
 ```
 
@@ -146,25 +143,27 @@ cp values/somaz/admin/dev1.values.yaml values/somaz/admin/dev2.values.yaml
 ### Validating Values Files
 
 ```bash
-# Lint with default values
+# Lint with chart defaults
 helm lint charts/base/
 
-# Lint with environment values
-helm lint charts/base/ -f values/somaz/admin/dev1.values.yaml
+# Lint with one of your values files
+helm lint charts/base/ -f values/my-project/admin/dev1.values.yaml
 
-# Strict mode lint (treats warnings as errors)
-helm lint charts/base/ -f values/somaz/admin/dev1.values.yaml --strict
+# Strict mode lint (treats warnings as errors, validates against values.schema.json)
+helm lint charts/base/ -f values/my-project/admin/dev1.values.yaml --strict
 
-# Render templates
-helm template test charts/base/ -f values/somaz/admin/dev1.values.yaml
+# Render templates. image.tag is required per service, so a bare render fails by
+# design — supply it from your values file or on the command line.
+helm template test charts/base/ -f values/my-project/admin/dev1.values.yaml
+helm template test charts/base/ --set image.tag=v1.0.0
 
 # Debug mode rendering (verbose output on errors)
-helm template test charts/base/ -f values/somaz/admin/dev1.values.yaml --debug
+helm template test charts/base/ -f values/my-project/admin/dev1.values.yaml --debug
 
 # Lint all environments for a specific service
-for env in dev1 qa1 prod-a; do
+for env in dev1 qa1 prod; do
   echo "=== ${env} ==="
-  helm lint charts/base/ -f values/somaz/admin/${env}.values.yaml
+  helm lint charts/base/ -f values/my-project/admin/${env}.values.yaml
 done
 ```
 
@@ -187,11 +186,11 @@ Sync policies applied to all ApplicationSets:
 
 | Item | Pattern | Example |
 |------|---------|---------|
-| ApplicationSet | `{env}-{project}-applicationset` | `dev-somaz-applicationset` |
-| Application | `{env}-{project}-{service}` | `dev1-somaz-admin` |
-| Namespace | `{env}-{project}` | `dev1-somaz` |
+| ApplicationSet | `{env}-{project}-applicationset` | `dev-my-project-applicationset` |
+| Application | `{env}-{project}-{service}` | `dev1-my-project-admin` |
+| Namespace | `{env}-{project}` | `dev1-my-project` |
 | Values file | `{env}.values.yaml` | `dev1.values.yaml` |
-| Helm Release | `{env}-{project}-{service}` | `dev1-somaz-admin` |
+| Helm Release | `{env}-{project}-{service}` | `dev1-my-project-admin` |
 
 <br/>
 

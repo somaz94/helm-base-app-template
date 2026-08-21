@@ -143,28 +143,28 @@ source:
 ## Validation
 
 ```bash
-# Lint with default values
+# Lint with chart defaults
 helm lint charts/base-aws/
 
-# Lint with environment values (tertiary-project project, deprecated)
-helm lint charts/base-aws/ -f values/tertiary-project/game/alpha.values.yaml
+# Lint with your own values file
+helm lint charts/base-aws/ -f my-values.yaml
 
-# Strict mode lint (treats warnings as errors)
-helm lint charts/base-aws/ -f values/tertiary-project/game/alpha.values.yaml --strict
+# Strict mode lint (treats warnings as errors, validates against values.schema.json)
+helm lint charts/base-aws/ -f my-values.yaml --strict
 
 # Render templates
 helm template test charts/base-aws/
 
-# Render with custom values (tertiary-project project, deprecated)
-helm template test charts/base-aws/ -f values/tertiary-project/game/alpha.values.yaml
+# Render with your own values
+helm template test charts/base-aws/ -f my-values.yaml
 
 # Debug mode rendering (verbose output on errors)
-helm template test charts/base-aws/ -f values/tertiary-project/game/alpha.values.yaml --debug
+helm template test charts/base-aws/ -f my-values.yaml --debug
 
-# Lint all environments for a specific service (tertiary-project project, deprecated)
-for env in alpha review; do
+# Lint every environment you keep under values/<project>/<service>/
+for env in dev qa prod; do
   echo "=== ${env} ==="
-  helm lint charts/base-aws/ -f values/tertiary-project/game/${env}.values.yaml
+  helm lint charts/base-aws/ -f values/my-project/game/${env}.values.yaml
 done
 ```
 

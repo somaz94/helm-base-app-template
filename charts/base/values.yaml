@@ -20,7 +20,7 @@ environment: ""
 # Ref: https://kubernetes.io/docs/concepts/containers/images/
 # =============================================================================
 image:
-  repository: harbor.example.com/example-project/game
+  repository: harbor.example.com/my-project/app
   pullPolicy: IfNotPresent
   # -- Image tag — REQUIRED per service (helm render fails if unset; no appVersion fallback)
   tag: ""

@@ -101,25 +101,27 @@ source:
 ## Validation
 
 ```bash
-# Lint with default values
+# Lint with chart defaults
 helm lint charts/base/
 
-# Lint with environment values
-helm lint charts/base/ -f values/example-project/game/dev1.values.yaml
+# Lint with your own values file
+helm lint charts/base/ -f my-values.yaml
 
-# Strict mode lint (treats warnings as errors)
-helm lint charts/base/ -f values/example-project/game/dev1.values.yaml --strict
+# Strict mode lint (treats warnings as errors, validates against values.schema.json)
+helm lint charts/base/ -f my-values.yaml --strict
 
-# Render templates
-helm template test charts/base/ -f values/example-project/game/dev1.values.yaml
+# Render templates. image.tag is required per service, so a bare render fails by
+# design — supply it from your values file or on the command line.
+helm template test charts/base/ -f my-values.yaml
+helm template test charts/base/ --set image.tag=v1.0.0
 
 # Debug mode rendering (verbose output on errors)
-helm template test charts/base/ -f values/example-project/game/dev1.values.yaml --debug
+helm template test charts/base/ -f my-values.yaml --debug
 
-# Lint all environments for a specific service
-for env in alpha dev1 qa1; do
+# Lint every environment you keep under values/<project>/<service>/
+for env in dev qa prod; do
   echo "=== ${env} ==="
-  helm lint charts/base/ -f values/example-project/game/${env}.values.yaml
+  helm lint charts/base/ -f values/my-project/game/${env}.values.yaml
 done
 ```
 

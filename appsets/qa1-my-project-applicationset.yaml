@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: dev-example-project-applicationset
+  name: qa-my-project-applicationset
 spec:
   generators:
     - matrix:
@@ -11,13 +11,16 @@ spec:
                 - cluster: example-cluster # your cluster name
                   url: https://192.168.1.17:6443  # your cluster url
                   values:
-                    project: example-project
-                    environment: dev1
+                    project: my-project
+                    environment: qa1
           - git:
               repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git # your source repo
               revision: HEAD
               directories:
-                - path: values/example-project/*
+                # - path: values/my-project/*
+                - path: values/my-project/game
+                - path: values/my-project/admin
+                - path: values/my-project/app-admin
   template:
     metadata:
       name: '{{values.environment}}-{{values.project}}-{{path.basename}}'

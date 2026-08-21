@@ -81,43 +81,47 @@ Modify values file → Git Push → ArgoCD detects → Helm rendering → Auto d
 
 <br/>
 
-## Helm Charts
+## Charts
 
-### base (On-premises)
+Four charts share one shape — the same values surface, the same templates, the same Argo
+Rollouts / PDB / ExternalSecret / Gateway API features — and differ only in their platform
+defaults. Pick by where the cluster runs, then read that chart's own README for its template
+list and values reference; this page deliberately does not duplicate them.
 
-Helm chart for on-premises clusters with NFS storage and nginx ingress. See [charts/base/](charts/base/) for chart details.
+| Chart | Version | Platform | Ingress | Storage | Identity |
+|-------|---------|----------|---------|---------|----------|
+| [`base`](charts/base/) | `1.0.0` | Self-managed / on-prem | nginx, Gateway API | NFS, any CSI | — |
+| [`base-aws`](charts/base-aws/) | `1.0.0` | AWS EKS | ALB, Gateway API | EFS + any CSI | IRSA |
+| [`base-azure`](charts/base-azure/) | `0.1.0` | Azure AKS | Application Gateway (AGIC), Gateway API | Azure Files / Disk + any CSI | Entra Workload Identity |
+| [`base-gcp`](charts/base-gcp/) | `0.1.0` | GCP GKE | GKE Ingress + BackendConfig/FrontendConfig, Gateway API | Filestore / PD + any CSI | GKE Workload Identity |
 
-| Template | Description |
-|----------|-------------|
-| deployment.yaml | Deployment (init containers, env injection, volume mounts) |
-| service.yaml | Service (version-based selector) |
-| ingress.yaml | Ingress (nginx) |
-| configmap.yaml | ConfigMap (multiple creation, envFrom injection) |
-| hpa.yaml | Horizontal Pod Autoscaler (v2) |
-| pv.yaml / pvc.yaml | NFS PersistentVolume (multiple items) |
-| certificate.yaml | cert-manager Certificate (Route53/CloudDNS) |
-| cert-cronjob.yaml | Certificate cleanup CronJob |
-| serviceaccount.yaml | ServiceAccount |
-| imagePullSecret.yaml | Docker registry Secret |
+`base` and `base-aws` are at `1.0.0` — they were extracted from charts running in production.
+`base-azure` and `base-gcp` sit at `0.1.0` deliberately: they lint and render, but no cluster has
+exercised their AGIC annotations, Filestore `volumeHandle` syntax, or BackendConfig wiring yet.
+They graduate to `1.0.0` once someone runs them for real.
 
-<br/>
+### Storage is driver-neutral everywhere
 
-### base-aws (AWS EKS)
+`storage.persistentVolumes.items[]` (`efs.persistentVolumes.items[]` on `base-aws`, kept for
+backward compatibility) takes a `source` of `csi` or `nfs`. Every CSI driver works through the
+same fields — `driver`, `volumeHandle`, `volumeAttributes`, `nodeStageSecretRef`, `mountOptions`
+— so EFS, Azure Files, Azure Disk, Filestore, Persistent Disk and plain NFS all render from one
+template. Dynamic provisioning needs no PV at all: declare a PVC with a `storageClassName`.
 
-Helm chart for AWS EKS environments with EFS storage and ALB ingress. See [charts/base-aws/](charts/base-aws/) for chart details.
+`storageClasses` optionally creates the StorageClasses too. That resource is **cluster-scoped**,
+so an ArgoCD AppProject delivering it must whitelist it or the whole Application rolls back:
 
-| Template | Description |
-|----------|-------------|
-| deployment.yaml | Deployment (EFS mounts, env injection) |
-| service.yaml | Service (version-based selector) |
-| ingress.yaml | Ingress (ALB, Client-Version header routing) |
-| ingress-health.yaml | Health check Ingress |
-| ingress-review.yaml | App store review Ingress |
-| ingress-api-docs.yaml | API docs Ingress |
-| configmap.yaml | ConfigMap (multiple creation, envFrom injection) |
-| hpa.yaml | Horizontal Pod Autoscaler (v2) |
-| efs-pv.yaml / efs-pvc.yaml | EFS CSI PersistentVolume |
-| serviceaccount.yaml | ServiceAccount (IRSA support) |
+```yaml
+clusterResourceWhitelist:
+  - group: storage.k8s.io
+    kind: StorageClass
+```
+
+### Ingress is controller-neutral everywhere
+
+`ingress.className` + `ingress.annotations` drive any controller — ALB, AGIC, GKE Ingress,
+nginx, Traefik. Each chart's `values.yaml` documents its platform's annotation set. For
+Gateway API, use `httproute.*` instead, with an optional companion HTTPS-redirect route.
 
 <br/>
 
@@ -201,49 +205,6 @@ for env in dev qa prod; do
   helm lint charts/base/ -f values/my-project/admin/${env}.values.yaml
 done
 ```
-
-<br/>
-
-## Charts
-
-Four charts share one shape — the same values surface, the same templates, the same Argo
-Rollouts / PDB / ExternalSecret / Gateway API features — and differ only in their platform
-defaults. Pick by where the cluster runs.
-
-| Chart | Version | Platform | Ingress | Storage | Identity |
-|-------|---------|----------|---------|---------|----------|
-| `base` | `1.0.0` | Self-managed / on-prem | nginx, Gateway API | NFS, any CSI | — |
-| `base-aws` | `1.0.0` | AWS EKS | ALB, Gateway API | EFS + any CSI | IRSA |
-| `base-azure` | `0.1.0` | Azure AKS | Application Gateway (AGIC), Gateway API | Azure Files / Disk + any CSI | Entra Workload Identity |
-| `base-gcp` | `0.1.0` | GCP GKE | GKE Ingress + BackendConfig/FrontendConfig, Gateway API | Filestore / PD + any CSI | GKE Workload Identity |
-
-`base` and `base-aws` are at `1.0.0` — they were extracted from charts running in production.
-`base-azure` and `base-gcp` sit at `0.1.0` deliberately: they lint and render, but no cluster has
-exercised their AGIC annotations, Filestore `volumeHandle` syntax, or BackendConfig wiring yet.
-They graduate to `1.0.0` once someone runs them for real.
-
-### Storage is driver-neutral everywhere
-
-`storage.persistentVolumes.items[]` (`efs.persistentVolumes.items[]` on `base-aws`, kept for
-backward compatibility) takes a `source` of `csi` or `nfs`. Every CSI driver works through the
-same fields — `driver`, `volumeHandle`, `volumeAttributes`, `nodeStageSecretRef`, `mountOptions`
-— so EFS, Azure Files, Azure Disk, Filestore, Persistent Disk and plain NFS all render from one
-template. Dynamic provisioning needs no PV at all: declare a PVC with a `storageClassName`.
-
-`storageClasses` optionally creates the StorageClasses too. That resource is **cluster-scoped**,
-so an ArgoCD AppProject delivering it must whitelist it or the whole Application rolls back:
-
-```yaml
-clusterResourceWhitelist:
-  - group: storage.k8s.io
-    kind: StorageClass
-```
-
-### Ingress is controller-neutral everywhere
-
-`ingress.className` + `ingress.annotations` drive any controller — ALB, AGIC, GKE Ingress,
-nginx, Traefik. Each chart's `values.yaml` documents its platform's annotation set. For
-Gateway API, use `httproute.*` instead, with an optional companion HTTPS-redirect route.
 
 <br/>
 

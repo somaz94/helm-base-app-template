@@ -236,7 +236,7 @@ helm template test charts/base-azure/ -f my-values.yaml --debug
 # Lint every environment you keep under values/<project>/<service>/
 for env in dev qa prod; do
   echo "=== ${env} ==="
-  helm lint charts/base-azure/ -f values/my-project/game/${env}.values.yaml
+  helm lint charts/base-azure/ -f values/my-project/admin/${env}.values.yaml
 done
 ```
 

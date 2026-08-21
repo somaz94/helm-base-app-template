@@ -1,6 +1,6 @@
 apiVersion: v2
 name: base
-description: On-premises Helm chart for ExampleProject/SecondaryProject applications
+description: On-premises Helm chart for Kubernetes applications
 type: application
 version: 0.1.0
 appVersion: "1.16.0"

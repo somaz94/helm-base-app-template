@@ -1,6 +1,6 @@
 # Base Helm Chart
 
-On-premises Helm chart for ExampleProject/SecondaryProject applications.
+On-premises Helm chart for Kubernetes applications.
 
 <br/>
 

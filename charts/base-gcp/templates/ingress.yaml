@@ -29,8 +29,10 @@ spec:
   {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
-      http:
+    {{- /* A rule with no host matches every request — the normal shape when the load
+           balancer is reached by IP and there is no DNS name yet. */}}
+    - {{ if .host }}host: {{ .host | quote }}
+      {{ end }}http:
         paths:
           {{- range .paths }}
           - path: {{ .path }}

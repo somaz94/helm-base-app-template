@@ -1,0 +1,68 @@
+# Values for the Tier 3 smoke test on a REAL GKE cluster (scripts/gke-smoke.sh).
+#
+# This file exists to exercise exactly what offline validation cannot reach: whether GKE
+# accepts and ACTS ON the annotations and volume handles this chart emits. Schemas cannot
+# check those — `kubernetes.io/ingress.class` is a map key and `volumeHandle` is a string,
+# so a typo passes helm lint, kubeconform and the API server alike.
+#
+# Deliberately minimal and cheap: one replica, a stock image, no Filestore (its smallest
+# tier is 1 TiB), no static IP reservation, no managed certificate.
+
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.29-alpine"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+serviceAccount:
+  create: true
+
+# GKE Ingress. `gce` provisions an external L7 load balancer, which is what makes the
+# BackendConfig / FrontendConfig wiring observable.
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: gce
+  hosts:
+    - paths:
+        - path: /
+          pathType: Prefix
+
+# Attaches to the SERVICE. The health check below is the observable signal: after the LB
+# settles, the GCP-side health check must show requestPath=/ and the timeout we set here.
+backendConfig:
+  enabled: true
+  timeoutSec: 25
+  healthCheck:
+    type: HTTP
+    requestPath: /
+    port: 80
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+
+# Attaches to the INGRESS. Redirect is observable with a plain curl once the LB is up.
+frontendConfig:
+  enabled: true
+  redirectToHttps:
+    enabled: false   # needs a certificate to be useful; keep the object minimal here
+
+# Dynamic provisioning against GKE's built-in PD class. This proves the PVC path without
+# hand-writing a pd.csi volumeHandle; the static-PV handle format is checked separately by
+# the script, against a disk it creates.
+storage:
+  persistentVolumeClaims:
+    enabled: true
+    items:
+      - name: smoke-pvc
+        accessModes: [ReadWriteOnce]
+        storageClassName: standard-rwo
+        storage: 10Gi
+        mountPath: /data

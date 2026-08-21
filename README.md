@@ -234,6 +234,28 @@ published CRD catalog with `kubeconform` instead.
 > are settled only by running on the real platform, which is why `base-azure` and `base-gcp` sit
 > at `0.1.0`.
 
+### Smoke-testing on a real GKE cluster
+
+`scripts/gke-smoke.sh` closes that gap for `base-gcp`. It creates a throwaway Autopilot cluster,
+installs the chart, and then checks what GKE *did* rather than what it accepted:
+
+```bash
+scripts/gke-smoke.sh --project MY_PROJECT --region us-central1
+```
+
+| Check | What a failure means |
+|-------|----------------------|
+| `BackendConfig` / `FrontendConfig` exist | the GKE CRDs rejected the object |
+| Service carries `cloud.google.com/backend-config` | the annotation key is wrong, so the LB silently uses a default health check |
+| Ingress gets an external address | `kubernetes.io/ingress.class` is wrong and nothing provisions |
+| backends report `HEALTHY` | the health check in force is not the one the BackendConfig asked for |
+| PVC reaches `Bound` | `pd.csi` dynamic provisioning is broken |
+| `HTTP 200` through the LB | traffic does not actually reach the pods |
+
+It tears the cluster down on exit (`--keep` to keep it) and restores your previous kube context.
+Filestore, managed certificates, Cloud Armor and IAP stay unverified — each needs paid
+infrastructure beyond a smoke test.
+
 <br/>
 
 ## App-of-Apps Bootstrap

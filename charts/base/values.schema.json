@@ -100,7 +100,7 @@
                                 }
                             }
                         },
-                        "required": ["host", "paths"]
+                        "required": ["paths"]
                     }
                 },
                 "tls": { "type": "array" }

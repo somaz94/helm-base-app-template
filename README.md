@@ -13,9 +13,9 @@ helm-base-app-template/
 │   ├── root.yaml                     #   root Application (apply once by hand)
 │   └── apps/                         #   child apps managing projects/ and appsets/
 ├── appsets/                          # ApplicationSet definitions (examples)
-│   ├── dev1-my-project-applicationset.yaml   # directory generator, globbed
-│   ├── qa1-my-project-applicationset.yaml    # directory generator, enumerated
-│   └── alpha-my-project-applicationset.yaml  # file generator, cloud chart
+│   ├── dev-my-project-applicationset.yaml    # directory generator, globbed
+│   ├── qa-my-project-applicationset.yaml     # directory generator, enumerated
+│   └── prod-my-project-applicationset.yaml   # file generator, cloud chart
 ├── charts/                           # Helm charts — one per target platform
 │   ├── base/                         # Self-managed / on-premises (NFS, nginx, Gateway API)
 │   ├── base-aws/                     # AWS EKS (EFS + any CSI, ALB, IRSA)
@@ -131,11 +131,11 @@ whose discovery behavior you want, point `repoURL` at your own repository, and r
 
 | ApplicationSet | Environment | Chart | Generator | Services |
 |----------------|-------------|-------|-----------|----------|
-| dev1-my-project | dev1 | base | directory, globbed | auto-discovered from `values/my-project/*` |
-| qa1-my-project | qa1 | base | directory, enumerated | `api`, `admin`, `worker` |
-| alpha-my-project | alpha | base-aws | file | whichever have an `alpha.values.yaml` |
+| dev-my-project | dev | base | directory, globbed | auto-discovered from `values/my-project/*` |
+| qa-my-project | qa | base | directory, enumerated | `api`, `admin`, `worker` |
+| prod-my-project | prod | base-aws | file | whichever have a `prod.values.yaml` |
 
-The `alpha` example is the cloud-chart one: same file, pointed at an EKS cluster and
+The `prod` example is the cloud-chart one: same file, pointed at an EKS cluster and
 `charts/base-aws`. Swapping in `base-azure` or `base-gcp` changes only the chart path.
 
 <br/>
@@ -151,13 +151,13 @@ The `alpha` example is the cloud-chart one: same file, pointed at an EKS cluster
 mkdir -p values/my-project/new-service
 
 # Create environment values files (reference existing services)
-cp values/my-project/admin/dev1.values.yaml values/my-project/new-service/dev1.values.yaml
+cp values/my-project/admin/dev.values.yaml values/my-project/new-service/dev.values.yaml
 # Modify image, ports, environment variables, etc.
 ```
 
 2. After git push, ArgoCD automatically detects and deploys.
 
-> **Note:** This is true for a globbed directory generator (the `dev1` example) — the directory alone registers the service. The `qa1` example enumerates its directories on purpose, so a new service reaches it only when you add the path there; the `alpha` example needs the service to have an `alpha.values.yaml`.
+> **Note:** This is true for a globbed directory generator (the `dev` example) — the directory alone registers the service. The `qa` example enumerates its directories on purpose, so a new service reaches it only when you add the path there; the `prod` example needs the service to have a `prod.values.yaml`.
 
 ### Adding a New Environment
 
@@ -165,7 +165,7 @@ cp values/my-project/admin/dev1.values.yaml values/my-project/new-service/dev1.v
 
 ```bash
 # Add new environment values for each service
-cp values/my-project/admin/dev1.values.yaml values/my-project/admin/dev2.values.yaml
+cp values/my-project/admin/dev.values.yaml values/my-project/admin/stg.values.yaml
 # Modify for the target environment
 ```
 
@@ -182,21 +182,21 @@ cp values/my-project/admin/dev1.values.yaml values/my-project/admin/dev2.values.
 helm lint charts/base/
 
 # Lint with one of your values files
-helm lint charts/base/ -f values/my-project/admin/dev1.values.yaml
+helm lint charts/base/ -f values/my-project/admin/dev.values.yaml
 
 # Strict mode lint (treats warnings as errors, validates against values.schema.json)
-helm lint charts/base/ -f values/my-project/admin/dev1.values.yaml --strict
+helm lint charts/base/ -f values/my-project/admin/dev.values.yaml --strict
 
 # Render templates. image.tag is required per service, so a bare render fails by
 # design — supply it from your values file or on the command line.
-helm template test charts/base/ -f values/my-project/admin/dev1.values.yaml
+helm template test charts/base/ -f values/my-project/admin/dev.values.yaml
 helm template test charts/base/ --set image.tag=v1.0.0
 
 # Debug mode rendering (verbose output on errors)
-helm template test charts/base/ -f values/my-project/admin/dev1.values.yaml --debug
+helm template test charts/base/ -f values/my-project/admin/dev.values.yaml --debug
 
 # Lint all environments for a specific service
-for env in dev1 qa1 prod; do
+for env in dev qa prod; do
   echo "=== ${env} ==="
   helm lint charts/base/ -f values/my-project/admin/${env}.values.yaml
 done
@@ -367,11 +367,11 @@ Sync policies applied to all ApplicationSets:
 
 | Item | Pattern | Example |
 |------|---------|---------|
-| ApplicationSet | `{env}-{project}-applicationset` | `dev1-my-project-applicationset` |
-| Application | `{env}-{project}-{service}` | `dev1-my-project-admin` |
-| Namespace | `{env}-{project}` | `dev1-my-project` |
-| Values file | `{env}.values.yaml` | `dev1.values.yaml` |
-| Helm Release | `{env}-{project}-{service}` | `dev1-my-project-admin` |
+| ApplicationSet | `{env}-{project}-applicationset` | `dev-my-project-applicationset` |
+| Application | `{env}-{project}-{service}` | `dev-my-project-admin` |
+| Namespace | `{env}-{project}` | `dev-my-project` |
+| Values file | `{env}.values.yaml` | `dev.values.yaml` |
+| Helm Release | `{env}-{project}-{service}` | `dev-my-project-admin` |
 
 <br/>
 

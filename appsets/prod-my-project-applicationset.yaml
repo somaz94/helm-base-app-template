@@ -1,0 +1,76 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  # {env}-{project}-applicationset — prod, matching the `environment` parameter below.
+  # The cloud-chart example: same pattern as the two on-premises appsets, pointed at
+  # charts/base-aws and an EKS cluster. Swap the chart path for base-azure or base-gcp and
+  # nothing else about this file changes — the chart is the only platform-specific part.
+  # Being prod changes no policy here either; the difference is the generator below.
+  name: prod-my-project-applicationset
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - cluster: example-eks-cluster # your cluster name
+                  url: https://EXAMPLE1A2B3C4D5E6F.gr7.us-east-1.eks.amazonaws.com # your cluster url
+                  values:
+                    project: my-project
+                    environment: prod
+          - git:
+              repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git # your source repo
+              revision: HEAD
+              # FILE generator, the third form: an Application is created only for services
+              # that actually have a prod values file, so a service can exist in dev without
+              # ever being dragged into production by the act of creating its directory. A
+              # directory generator cannot express that — it matches the directory whether or
+              # not the env's values file is there, and the resulting Application fails to
+              # render.
+              #
+              # 🔴 The exclude below is MANDATORY here and is NOT symmetric with the directory
+              # generators above. A file glob crosses directory boundaries, so it descends into
+              # values/{project}/{service}/_deprecated/prod.values.yaml and emits an
+              # Application named prod-my-project-_deprecated whose valueFiles path does not
+              # exist — a permanent render failure. Directory generators never reach that far.
+              files:
+                - path: values/my-project/*/prod.values.yaml
+                - path: '**/_deprecated/**'
+                  exclude: true
+  template:
+    metadata:
+      # path.basename is the directory holding the matched file, i.e. the service name.
+      name: '{{values.environment}}-{{values.project}}-{{path.basename}}'
+      labels:
+        environment: '{{values.environment}}'
+        project: '{{values.project}}'
+        app-name: '{{path.basename}}'
+    spec:
+      project: '{{values.project}}'
+      source:
+        repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
+        targetRevision: HEAD
+        path: charts/base-aws
+        helm:
+          version: v3
+          releaseName: '{{values.environment}}-{{values.project}}-{{path.basename}}'
+          valueFiles:
+            # Relative to `path` above, so ../../ lands back at the repo root.
+            - '../../values/{{values.project}}/{{path.basename}}/{{values.environment}}.values.yaml'
+      destination:
+        server: '{{url}}'
+        namespace: '{{values.environment}}-{{values.project}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+  # Appset-level sync policy — spec.syncPolicy, NOT the template's spec.syncPolicy above.
+  # preserveResourcesOnDeletion defaults to FALSE, which means deleting this ApplicationSet
+  # deletes every Application it generated, and with them every running workload. Uncomment
+  # only if you want removing this file to leave the apps behind for a manual cleanup.
+  # syncPolicy:
+  #   preserveResourcesOnDeletion: true

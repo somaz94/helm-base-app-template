@@ -256,6 +256,12 @@ It tears the cluster down on exit (`--keep` to keep it) and restores your previo
 Filestore, managed certificates, Cloud Armor and IAP stay unverified — each needs paid
 infrastructure beyond a smoke test.
 
+**This script has not been run.** No GKE project is available to this repository's authors, and
+`base-azure` has no equivalent for the same reason. Where a real cluster was out of reach, every
+annotation key and CSI `volumeHandle` format was instead cross-checked against the upstream
+project that consumes it — see [charts/VERIFICATION.md](charts/VERIFICATION.md) for the results
+and for what remains untested.
+
 <br/>
 
 ## App-of-Apps Bootstrap

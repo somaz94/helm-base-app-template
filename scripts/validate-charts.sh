@@ -26,6 +26,14 @@ cd "$REPO_ROOT"
 cleanup() { [ "$KEEP" -eq 1 ] || kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
+for bin in kind kubectl helm kubeconform python3; do
+  command -v "$bin" >/dev/null || { echo "missing dependency: $bin" >&2; exit 1; }
+done
+# The manifest filter below needs PyYAML. Say so up front rather than failing mid-run with
+# a bare ImportError from inside a pipeline.
+python3 -c 'import yaml' 2>/dev/null || {
+  echo "missing dependency: PyYAML (pip install pyyaml)" >&2; exit 1; }
+
 if ! kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
   echo "==> creating kind cluster '$CLUSTER'"
   kind create cluster --name "$CLUSTER" --wait 90s >/dev/null

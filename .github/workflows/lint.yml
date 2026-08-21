@@ -46,3 +46,11 @@ jobs:
           # own ci/ values instead; that also gives `helm lint --strict` real input to
           # validate against values.schema.json.
           values_files: ${{ matrix.values }}
+          # Schema-validate the rendered manifests. `default` covers core Kubernetes; the
+          # catalog covers the CRDs these charts emit — Rollout, AnalysisTemplate,
+          # ExternalSecret, HTTPRoute, and GKE's BackendConfig / FrontendConfig. This is what
+          # catches a wrong apiVersion or a mistyped CRD field; `helm lint` cannot.
+          run_kubeconform: 'true'
+          kubeconform_schema_locations: |
+            default
+            https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json

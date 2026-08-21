@@ -11,12 +11,10 @@ metadata:
   name: {{ include "base-gcp.fullname" . }}
   labels:
     {{- include "base-gcp.labels" . | nindent 4 }}
+{{- $spec := omit .Values.frontendConfig "enabled" }}
 spec:
-  {{- with .Values.frontendConfig.redirectToHttps }}
-  redirectToHttps:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.frontendConfig.sslPolicy }}
-  sslPolicy: {{ . }}
+  {{- if $spec }}
+  {{- toYaml $spec | nindent 2 }}
+  {{- else }} {}
   {{- end }}
 {{- end }}

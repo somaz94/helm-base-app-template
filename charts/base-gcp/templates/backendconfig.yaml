@@ -14,40 +14,13 @@ metadata:
   name: {{ include "base-gcp.fullname" . }}
   labels:
     {{- include "base-gcp.labels" . | nindent 4 }}
+{{- $spec := omit .Values.backendConfig "enabled" }}
 spec:
-  {{- with .Values.backendConfig.timeoutSec }}
-  timeoutSec: {{ . }}
-  {{- end }}
-  {{- with .Values.backendConfig.connectionDraining }}
-  connectionDraining:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.healthCheck }}
-  healthCheck:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.sessionAffinity }}
-  sessionAffinity:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.securityPolicy }}
-  securityPolicy:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.cdn }}
-  cdn:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.iap }}
-  iap:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.logging }}
-  logging:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-  {{- with .Values.backendConfig.customRequestHeaders }}
-  customRequestHeaders:
-    {{- toYaml . | nindent 4 }}
+  {{- /* spec must be an object: an enabled-but-unconfigured BackendConfig would
+         otherwise render `spec:` with no children, i.e. spec: null, which the CRD
+         schema rejects. */}}
+  {{- if $spec }}
+  {{- toYaml $spec | nindent 2 }}
+  {{- else }} {}
   {{- end }}
 {{- end }}

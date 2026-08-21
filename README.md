@@ -212,6 +212,30 @@ Gateway API, use `httproute.*` instead, with an optional companion HTTPS-redirec
 
 <br/>
 
+## Validating the charts
+
+`scripts/validate-charts.sh` checks every chart against **real Kubernetes API schemas** without
+needing a cloud account. It stands up a throwaway `kind` cluster, installs the Gateway API,
+Argo Rollouts and External Secrets CRDs, and runs `kubectl apply --dry-run=server` over each
+render path — so the API server itself rejects wrong apiVersions, unknown fields and bad types.
+
+```bash
+scripts/validate-charts.sh          # creates and deletes the kind cluster
+scripts/validate-charts.sh --keep   # leaves it running for a faster second pass
+```
+
+GKE's `BackendConfig` and `FrontendConfig` are installed by the managed control plane, so `kind`
+cannot provide them. Those two kinds are withheld from the API server and validated against the
+published CRD catalog with `kubeconform` instead.
+
+> **What this cannot catch:** ingress annotations. `appgw.ingress.kubernetes.io/health-probe-path`
+> or `networking.gke.io/managed-certificates` are entries in a `map[string]string` — a typo is
+> valid to every schema there is. The same goes for the *format* of a CSI `volumeHandle`. Those
+> are settled only by running on the real platform, which is why `base-azure` and `base-gcp` sit
+> at `0.1.0`.
+
+<br/>
+
 ## App-of-Apps Bootstrap
 
 `bootstrap/` turns the `projects/` and `appsets/` trees into GitOps-managed state instead of

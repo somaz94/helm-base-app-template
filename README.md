@@ -8,6 +8,10 @@ A base Helm chart template for deploying applications to Kubernetes, using ArgoC
 
 ```
 helm-base-app-template/
+├── bootstrap/                        # App-of-apps control plane
+│   ├── bootstrap-project.yaml        #   admin-only AppProject
+│   ├── root.yaml                     #   root Application (apply once by hand)
+│   └── apps/                         #   child apps managing projects/ and appsets/
 ├── appsets/                          # ApplicationSet definitions (examples)
 │   ├── dev-my-project-applicationset.yaml
 │   └── qa1-my-project-applicationset.yaml
@@ -166,6 +170,57 @@ for env in dev1 qa1 prod; do
   helm lint charts/base/ -f values/my-project/admin/${env}.values.yaml
 done
 ```
+
+<br/>
+
+## App-of-Apps Bootstrap
+
+`bootstrap/` turns the `projects/` and `appsets/` trees into GitOps-managed state instead of
+manifests someone has to remember to `kubectl apply`. Two files are applied by hand exactly
+once — they are the entry point, so they cannot manage themselves — and everything below them
+is reconciled from git afterwards.
+
+```
+bootstrap-root  (Application, applied by hand)
+├── projects   (child app, sync-wave -1)  →  projects/*.yaml     → AppProjects
+└── appsets    (child app, sync-wave  0)  →  appsets/*.yaml      → ApplicationSets
+                                                                    └── generated Applications
+```
+
+```bash
+kubectl apply -n argocd -f bootstrap/bootstrap-project.yaml
+kubectl apply -n argocd -f bootstrap/root.yaml
+```
+
+The root reads `bootstrap/apps`, **not** `bootstrap/` — otherwise it would manage its own
+manifest and the `bootstrap` AppProject that scopes it.
+
+### Prune policy: the control plane is not pruned
+
+Every layer here runs `prune: false` with `selfHeal: true`, which is the opposite of the leaf
+workloads. The reason is cascade deletion:
+
+| Layer | Prune | Why |
+|-------|-------|-----|
+| `bootstrap-root`, child apps | `false` | A stray prune would delete the control plane itself |
+| AppProjects | `false` | Pruning a project while apps reference it freezes them all — auto-sync halts with "project does not exist" |
+| ApplicationSets | `false` | `preserveResourcesOnDeletion` defaults to `false`, so deleting an appset deletes **every Application it generated** |
+| Generated workload Applications | `true` | True GitOps at the leaf — these should follow git exactly |
+
+`selfHeal` still re-applies anything drifted or hand-deleted, so the control plane converges
+without ever being allowed to cascade-delete. Removing something intentionally is a deliberate
+manual prune.
+
+### Two footguns worth knowing
+
+**Never set `directory.recurse: false` explicitly.** `false` is the ArgoCD default, so the
+controller normalizes the field away on the live object. Git then has a field the live object
+does not, the parent app-of-apps sees a permanent OutOfSync diff, and `selfHeal` re-syncs
+forever. Omit the key instead — the child apps here do.
+
+**Sync waves are cosmetic, not load-bearing.** `projects` at wave `-1` lands before `appsets`
+at wave `0` so an appset's generated app does not briefly report "project not found". If the
+order is ever violated, `selfHeal` converges anyway.
 
 <br/>
 

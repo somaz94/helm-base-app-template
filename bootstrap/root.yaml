@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # App-of-apps root. Apply ONCE by hand, together with bootstrap-project.yaml:
+  #   kubectl apply -n argocd -f bootstrap/bootstrap-project.yaml
+  #   kubectl apply -n argocd -f bootstrap/root.yaml
+  # From then on the projects/ and appsets/ trees are GitOps-managed by the child apps this
+  # root renders — removing the "forgot to kubectl apply / landed in the wrong namespace"
+  # footgun that hand-applied ApplicationSets invite.
+  name: bootstrap-root
+  namespace: argocd
+spec:
+  project: bootstrap
+  source:
+    repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
+    targetRevision: HEAD
+    # Renders the child Application CRs under bootstrap/apps. Deliberately NOT bootstrap/
+    # (which also holds root.yaml and bootstrap-project.yaml) so the root never manages itself.
+    path: bootstrap/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://192.168.1.17:6443
+    namespace: argocd
+  syncPolicy:
+    automated:
+      # Control-plane layer: never auto-delete the child apps. selfHeal re-applies them if
+      # they are hand-mangled.
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true

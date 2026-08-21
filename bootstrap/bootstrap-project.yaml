@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  # Admin-only project for the app-of-apps control plane: the root Application plus the
+  # child apps that manage projects/ and appsets/. Keep it separate from your workload
+  # projects — if your ArgoCD RBAC grants developers a role scoped to specific projects
+  # with a default deny, this project stays global-admin-only.
+  name: bootstrap
+  namespace: argocd
+spec:
+  description: Admin-only project for the app-of-apps root and its projects/appsets child apps.
+  sourceRepos:
+    - git@gitlab.example.com:example-org/helm-base-app-template.git
+  destinations:
+    # All managed CRs (AppProject / ApplicationSet / Application) live in the argocd
+    # namespace. This is the only destination these control-plane apps need.
+    - server: https://192.168.1.17:6443
+      namespace: argocd
+  # No cluster-scoped resources are managed by these apps — they only create namespaced
+  # argoproj.io CRs — so the cluster whitelist is intentionally empty.
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: argoproj.io
+      kind: AppProject
+    - group: argoproj.io
+      kind: ApplicationSet
+    - group: argoproj.io
+      kind: Application

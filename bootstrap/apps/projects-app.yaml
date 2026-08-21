@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # Child app of bootstrap-root: GitOps-manages the AppProjects under projects/.
+  # Create that directory in your own fork — one AppProject manifest per tenant or concern.
+  # At scale, split this into several child apps (workload vs platform, or one per cluster)
+  # so the two sets evolve independently.
+  name: projects
+  namespace: argocd
+  annotations:
+    # Apply before the appsets. Cosmetic ordering only — selfHeal converges even if an
+    # appset's generated app briefly reports "project not found".
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  source:
+    repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
+    targetRevision: HEAD
+    path: projects
+    # No directory.recurse here: recurse:false is the ArgoCD default, and setting it
+    # explicitly makes the controller normalize it away on the live object -> the parent
+    # app-of-apps sees a perpetual OutOfSync diff (git has the field, live drops it) and
+    # selfHeal re-syncs forever. Omit it to read the top-level projects/*.yaml.
+  destination:
+    server: https://192.168.1.17:6443
+    namespace: argocd
+  syncPolicy:
+    automated:
+      # NEVER auto-prune AppProjects: pruning a project while apps still reference it freezes
+      # every one of those apps ("project does not exist", auto-sync halts). Intentional
+      # removal is a deliberate manual prune.
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true

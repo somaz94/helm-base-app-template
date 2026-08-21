@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # Child app of bootstrap-root: GitOps-manages the ApplicationSets under appsets/.
+  # At scale, split this into several child apps (workload vs platform, or one per cluster)
+  # so the two sets evolve independently.
+  name: appsets
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: bootstrap
+  source:
+    repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
+    targetRevision: HEAD
+    path: appsets
+    # Same reason as projects-app.yaml: omit directory.recurse rather than setting it false,
+    # or the parent app-of-apps sees a perpetual OutOfSync diff.
+  destination:
+    server: https://192.168.1.17:6443
+    namespace: argocd
+  syncPolicy:
+    automated:
+      # prune:false breaks the appset -> generated-Application cascade-delete chain. Deleting
+      # an ApplicationSet (preserveResourcesOnDeletion defaults false) would otherwise delete
+      # every Application it generated. selfHeal still re-applies a drifted or hand-deleted
+      # appset. NOTE: the leaf apps the appsets generate keep their own prune:true — true
+      # GitOps for workloads. Only this control-plane layer is prune:false.
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true

@@ -23,7 +23,17 @@ CATALOG='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-cleanup() { [ "$KEEP" -eq 1 ] || kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true; }
+# `kind create` switches the caller's current-context, and `kind delete` then leaves it
+# UNSET. On a workstation whose context was pointing at a production cluster that is a
+# nasty parting gift, so remember it and put it back.
+PREV_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
+
+cleanup() {
+  [ "$KEEP" -eq 1 ] || kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true
+  if [ -n "$PREV_CONTEXT" ] && [ "$PREV_CONTEXT" != "$CTX" ]; then
+    kubectl config use-context "$PREV_CONTEXT" >/dev/null 2>&1 || true
+  fi
+}
 trap cleanup EXIT
 
 for bin in kind kubectl helm kubeconform python3; do

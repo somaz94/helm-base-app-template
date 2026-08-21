@@ -21,3 +21,6 @@
 .idea/
 *.tmproj
 .vscode/
+
+# CI-only values, not part of the packaged chart
+ci/

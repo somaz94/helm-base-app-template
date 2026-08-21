@@ -1,0 +1,9 @@
+# Exercises the Argo Rollouts branch: rollout.yaml renders INSTEAD of deployment.yaml,
+# and hpa.yaml retargets its scaleTargetRef. Keeps the mutually-exclusive path covered.
+image:
+  tag: "v1.0.0"
+rollout:
+  enabled: true
+  strategy: canary
+autoscaling:
+  enabled: true

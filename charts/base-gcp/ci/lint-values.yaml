@@ -1,0 +1,5 @@
+# Minimal values for CI lint/template. image.tag is REQUIRED per service — the chart
+# deliberately fails to render without it (appVersion is not a fallback), so a bare
+# `helm template` cannot be used as a CI check.
+image:
+  tag: "v1.0.0"

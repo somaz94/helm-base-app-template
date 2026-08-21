@@ -15,11 +15,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chart:
-          - charts/base
-          - charts/base-aws
-          - charts/base-azure
-          - charts/base-gcp
+        include:
+          # `base` has no Argo Rollouts templates, so it lints with one values file.
+          - chart: charts/base
+            values: |
+              charts/base/ci/lint-values.yaml
+          - chart: charts/base-aws
+            values: |
+              charts/base-aws/ci/lint-values.yaml
+              charts/base-aws/ci/rollout-values.yaml
+          - chart: charts/base-azure
+            values: |
+              charts/base-azure/ci/lint-values.yaml
+              charts/base-azure/ci/rollout-values.yaml
+          - chart: charts/base-gcp
+            values: |
+              charts/base-gcp/ci/lint-values.yaml
+              charts/base-gcp/ci/rollout-values.yaml
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -28,3 +40,9 @@ jobs:
         uses: somaz94/helm-kustomize-lint-action@v1
         with:
           chart_path: ${{ matrix.chart }}
+          # image.tag is REQUIRED per service — these charts deliberately fail to render
+          # without it (appVersion is not a fallback). A bare `helm template`, which this
+          # action runs by default, therefore cannot be the check. Point it at the chart's
+          # own ci/ values instead; that also gives `helm lint --strict` real input to
+          # validate against values.schema.json.
+          values_files: ${{ matrix.values }}

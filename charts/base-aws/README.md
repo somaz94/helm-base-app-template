@@ -14,7 +14,9 @@ Specialized Helm chart for AWS EKS clusters with EFS CSI storage, AWS ALB ingres
 
 | Template | Resource | Description |
 |----------|----------|-------------|
-| `deployment.yaml` | Deployment | Main workload with EFS mounts, env injection |
+| `deployment.yaml` | Deployment | Main workload with EFS mounts, env injection (suppressed when `rollout.enabled`) |
+| `rollout.yaml` | Rollout | Argo Rollouts workload rendered *instead of* the Deployment |
+| `analysistemplate.yaml` | AnalysisTemplate | Promotion/rollback analysis definitions from `analysisTemplates` |
 | `service.yaml` | Service | ClusterIP/NodePort/LoadBalancer with version selector |
 | `ingress.yaml` | Ingress | Main ALB ingress with Client-Version header routing |
 | `ingress-review.yaml` | Ingress | iOS app review traffic with version-specific routing |
@@ -25,7 +27,12 @@ Specialized Helm chart for AWS EKS clusters with EFS CSI storage, AWS ALB ingres
 | `configmap.yaml` | ConfigMap | Multiple ConfigMaps with envFrom injection |
 | `efs-pv.yaml` | PersistentVolume | EFS CSI-backed PVs with Access Point support |
 | `efs-pvc.yaml` | PersistentVolumeClaim | PVCs with optional static PV binding |
-| `_helpers.tpl` | - | Helper templates (name, labels) |
+| `service-preview.yaml` | Service | Blue-green preview Service (`<fullname>-preview`) |
+| `ingress-preview.yaml` | Ingress | Binds the preview Service to an ALB target group |
+| `pdb.yaml` | PodDisruptionBudget | Voluntary-disruption floor for the workload |
+| `externalsecret.yaml` | ExternalSecret | ESO-managed Secret, injected via `envFrom` |
+| `extra-objects.yaml` | any | Escape hatch: arbitrary manifests from `extraObjects` |
+| `_helpers.tpl` | - | Helper templates (name, labels, shared pod template) |
 | `NOTES.txt` | - | Post-install instructions |
 
 <br/>
@@ -37,6 +44,9 @@ Specialized Helm chart for AWS EKS clusters with EFS CSI storage, AWS ALB ingres
 - **EFS CSI storage**: PersistentVolumes with EFS file system ID and Access Point support
 - **Environment injection**: `environment` value auto-injected as `ENVIRONMENT` env var
 - **Version-based routing**: `version` label on pods for canary/blue-green deployments
+- **Argo Rollouts delivery**: opt-in blue-green or canary, sharing one pod template with the Deployment
+- **PodDisruptionBudget**: optional voluntary-disruption floor
+- **External Secrets**: optional ESO `ExternalSecret` injected into the pod via `envFrom`
 - **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables
 - **IRSA support**: ServiceAccount annotations for IAM Roles for Service Accounts
 - **Schema validation**: `values.schema.json` validates input values
@@ -121,6 +131,59 @@ Key ALB annotations used:
 | `alb.ingress.kubernetes.io/certificate-arn` | ACM certificate ARN for TLS |
 | `alb.ingress.kubernetes.io/conditions.*` | Header/path-based routing conditions |
 | `alb.ingress.kubernetes.io/actions.*` | Target group forwarding actions |
+
+<br/>
+
+## Argo Rollouts Delivery
+
+Opt-in and disabled by default. Requires the [Argo Rollouts controller](https://argo-rollouts.readthedocs.io/)
+in the cluster.
+
+When `rollout.enabled=true`, `rollout.yaml` renders a `Rollout` **instead of** the `Deployment` — the
+two are mutually exclusive. The pod spec is shared through the `base-aws.podTemplate` helper, so the
+Rollout and the Deployment can never drift apart. The existing `<fullname>` Service is reused as the
+active Service, and `hpa.yaml` retargets its `scaleTargetRef` to the `Rollout` automatically.
+
+`rollout.strategy` has **no default** — an unset or unknown value fails the render rather than picking
+one silently, so every service chooses its delivery mode explicitly per environment.
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `rollout.enabled` | `false` | Render a Rollout instead of a Deployment |
+| `rollout.strategy` | `""` | **Required** when enabled: `canary` or `blueGreen` |
+| `rollout.canary.maxSurge` | `1` | Extra pods above desired during the roll |
+| `rollout.canary.maxUnavailable` | `0` | Pods down at once; `0` keeps the target group from ever going 0-healthy |
+| `rollout.blueGreen.scaleDownDelaySeconds` | `30` | How long the old ReplicaSet keeps serving after promote |
+| `rollout.blueGreen.autoPromotionEnabled` | `false` | `false` = manual `kubectl argo rollouts promote` |
+| `rollout.blueGreen.previewReplicaCount` | `null` | `null` = full-replica preview |
+| `rollout.analysis.prePromotion.templates` | `[]` | AnalysisTemplate refs gating promotion |
+| `rollout.analysis.postPromotion.templates` | `[]` | AnalysisTemplate refs driving auto-rollback |
+
+### Choosing a strategy
+
+**`blueGreen`** swaps the active target group all at once on promotion. It renders the
+`<fullname>-preview` Service and, with `ingressPreview.enabled`, a preview Ingress that gives the new
+pods their own ALB target group for a pre-promote check.
+
+> **Important:** in a namespace with the ALB pod-readiness-gate injected, blue-green **requires**
+> `ingressPreview.enabled=true`. Without a preview target group the preview pods can never report
+> Ready, and the promotion hangs indefinitely. `NOTES.txt` warns about this combination at install
+> time. Canary needs no preview target group, so it is unaffected.
+
+**`canary`** replaces pods add-before-remove inside the single active target group. `maxUnavailable: 0`
+keeps ready at desired so the target group is never 0-healthy, which removes the promotion-time ELB 503
+race. It briefly runs old and new pods together, so pick it only where a request may hit either version.
+
+```bash
+# blue-green with a preview target group
+helm template test charts/base-aws --set image.tag=v1.0.0 \
+  --set rollout.enabled=true --set rollout.strategy=blueGreen \
+  --set ingressPreview.enabled=true
+
+# canary
+helm template test charts/base-aws --set image.tag=v1.0.0 \
+  --set rollout.enabled=true --set rollout.strategy=canary
+```
 
 <br/>
 

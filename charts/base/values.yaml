@@ -22,7 +22,7 @@ environment: ""
 image:
   repository: harbor.example.com/example-project/game
   pullPolicy: IfNotPresent
-  # -- Overrides the image tag whose default is the chart appVersion
+  # -- Image tag — REQUIRED per service (helm render fails if unset; no appVersion fallback)
   tag: ""
 
 # =============================================================================
@@ -31,7 +31,11 @@ image:
 # Ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 # =============================================================================
 imageCredentials:
-  enabled: true
+  # -- Generate a dockerconfigjson pull Secret from these credentials when enabled.
+  # Default OFF with a placeholder password — set enabled=true + a real password in a
+  # per-service values file only where this chart must CREATE the secret. Never commit
+  # a real credential into this chart default.
+  enabled: false
   registry: https://harbor.example.com
   username: robot$example
   password: <HARBOR_ROBOT_TOKEN>
@@ -229,6 +233,21 @@ resources: {}
   #   memory: 128Mi
 
 # =============================================================================
+# Termination & Lifecycle
+# =============================================================================
+# -- Pod termination grace period in seconds (unset -> Kubernetes default of 30)
+# Increase for workloads that need time to drain connections/sessions on shutdown.
+terminationGracePeriodSeconds: ""
+  # terminationGracePeriodSeconds: 60
+
+# -- Container lifecycle hooks (e.g. preStop for connection/session draining)
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+lifecycle: {}
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "sleep 15"]
+
+# =============================================================================
 # Deployment Strategy
 # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 # =============================================================================
@@ -257,11 +276,10 @@ autoscaling:
 # RBAC
 # Ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 # =============================================================================
-rbac:
-  # -- Enable RBAC resource creation (Role, RoleBinding)
-  # NOTE: Template files for Role/RoleBinding are not yet implemented.
-  # Currently only used for cert-cleanup CronJob serviceAccountName.
-  enabled: false
+# ServiceAccount used by the cert-cleanup CronJob (defaults to the release fullname).
+# NOTE: Role/RoleBinding templates are not yet implemented; only serviceAccountName is
+# consumed today (cert-cronjob.yaml). Empty object so consumers may omit the key entirely.
+rbac: {}
   # serviceAccountName: ""
   # role:
   #   name: cert-job-manager-base

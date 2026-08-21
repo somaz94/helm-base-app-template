@@ -66,7 +66,7 @@ Generic Helm chart designed for on-premises Kubernetes clusters with NFS storage
 |-----------|---------|-------------|
 | `environment` | `""` | Environment name → `ENVIRONMENT` env var |
 | `version` | `""` | Version label for routing |
-| `image.tag` | `""` | Image tag (defaults to `appVersion`) |
+| `image.tag` | `""` | Image tag — required per service (render fails if unset) |
 | `service.targetPort` | `8080` | Container port |
 | `ingress.enabled` | `false` | Enable ingress |
 | `autoscaling.enabled` | `false` | Enable HPA |
@@ -78,7 +78,7 @@ Generic Helm chart designed for on-premises Kubernetes clusters with NFS storage
 | `persistentVolumeClaims.enabled` | `false` | Enable PVC creation |
 | `certificate.enabled` | `false` | Enable cert-manager Certificate |
 | `certCleanup.enabled` | `false` | Enable cert cleanup CronJob |
-| `imageCredentials.enabled` | `true` | Enable docker registry Secret |
+| `imageCredentials.enabled` | `false` | Generate docker registry Secret (off — pull secret delivered externally via cluster-wide SealedSecret) |
 
 <br/>
 
@@ -105,19 +105,19 @@ source:
 helm lint charts/base/
 
 # Lint with environment values
-helm lint charts/base/ -f values/example-project/game/dev.values.yaml
+helm lint charts/base/ -f values/example-project/game/dev1.values.yaml
 
 # Strict mode lint (treats warnings as errors)
-helm lint charts/base/ -f values/example-project/game/dev.values.yaml --strict
+helm lint charts/base/ -f values/example-project/game/dev1.values.yaml --strict
 
 # Render templates
-helm template test charts/base/ -f values/example-project/game/dev.values.yaml
+helm template test charts/base/ -f values/example-project/game/dev1.values.yaml
 
 # Debug mode rendering (verbose output on errors)
-helm template test charts/base/ -f values/example-project/game/dev.values.yaml --debug
+helm template test charts/base/ -f values/example-project/game/dev1.values.yaml --debug
 
 # Lint all environments for a specific service
-for env in dev qa staging alpha review; do
+for env in alpha dev1 qa1; do
   echo "=== ${env} ==="
   helm lint charts/base/ -f values/example-project/game/${env}.values.yaml
 done

@@ -257,6 +257,43 @@
                 "maxUnavailable": { "type": ["integer", "string"] }
             }
         },
+        "httproute": {
+            "type": "object",
+            "properties": {
+                "enabled": { "type": "boolean" },
+                "annotations": { "type": "object" },
+                "parentRefs": { "type": "array" },
+                "hostnames": { "type": "array", "items": { "type": "string" } },
+                "rules": { "type": "array" },
+                "httpsRedirect": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": { "type": "boolean" },
+                        "statusCode": { "type": "integer" },
+                        "port": { "type": "integer" },
+                        "parentRefs": { "type": "array" }
+                    }
+                }
+            }
+        },
+        "storageClasses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "provisioner": { "type": "string" },
+                    "reclaimPolicy": { "type": "string", "enum": ["Retain", "Delete"] },
+                    "volumeBindingMode": { "type": "string", "enum": ["Immediate", "WaitForFirstConsumer"] },
+                    "allowVolumeExpansion": { "type": "boolean" },
+                    "parameters": { "type": "object" },
+                    "annotations": { "type": "object" },
+                    "mountOptions": { "type": "array", "items": { "type": "string" } },
+                    "allowedTopologies": { "type": "array" }
+                },
+                "required": ["name", "provisioner"]
+            }
+        },
         "rbac": {
             "type": "object",
             "properties": {

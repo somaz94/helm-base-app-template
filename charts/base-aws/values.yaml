@@ -564,6 +564,88 @@ volumeMounts: []
   #   mountPath: /etc/config
 
 # =============================================================================
+# Gateway API HTTPRoute
+# Ref: https://gateway-api.sigs.k8s.io/
+# Cloud-neutral alternative to Ingress. Works with any GatewayClass — AWS Gateway API
+# Controller, NGINX Gateway Fabric, Istio, and the managed GKE/AKS gateway classes.
+# Enable this OR ingress.*, not both, unless you are mid-migration.
+# =============================================================================
+httproute:
+  # -- Enable HTTPRoute resource creation
+  enabled: false
+  # annotations: {}
+  #
+  # parentRefs:
+  #   - name: my-gateway               # Gateway name
+  #     namespace: gateway-system      # Gateway namespace
+  #     # sectionName: https           # bind to a specific listener
+  #     # port: 443
+  #
+  # hostnames:
+  #   - app.example.com
+  #
+  # rules:
+  #   - matches:
+  #       - path:
+  #           type: PathPrefix         # PathPrefix | Exact | RegularExpression
+  #           value: /
+  #     # filters:                     # URLRewrite / RequestRedirect / header modifiers
+  #     # timeouts:
+  #     #   request: 60s
+  #     # backendRefs:                 # omit to auto-wire to this release's Service
+  #     #   - port: 80
+  #
+  # -- Optional companion HTTPRoute that 301s HTTP to HTTPS
+  httpsRedirect:
+    enabled: false
+    # statusCode: 301
+    # parentRefs:
+    #   - name: my-gateway
+    #     namespace: gateway-system
+    #     sectionName: http
+
+# =============================================================================
+# StorageClasses (OPT-IN, empty by default)
+# Ref: https://kubernetes.io/docs/concepts/storage/storage-classes/
+#
+# Most clusters have their storage classes provisioned by the platform team rather than
+# by an application chart, so nothing renders unless you populate this list.
+#
+# StorageClass is CLUSTER-SCOPED. Delivering it through ArgoCD requires the consuming
+# AppProject to whitelist it, or the sync is rejected and the ENTIRE Application rolls
+# back:
+#     clusterResourceWhitelist:
+#       - group: storage.k8s.io
+#         kind: StorageClass
+# =============================================================================
+storageClasses: []
+#   - name: efs-sc
+#     provisioner: efs.csi.aws.com
+#     reclaimPolicy: Retain
+#     volumeBindingMode: Immediate
+#     parameters:
+#       provisioningMode: efs-ap
+#       fileSystemId: fs-0123456789abcdef0
+#       directoryPerms: "700"
+#   - name: gp3
+#     provisioner: ebs.csi.aws.com
+#     volumeBindingMode: WaitForFirstConsumer
+#     allowVolumeExpansion: true
+#     parameters:
+#       type: gp3
+#       encrypted: "true"
+#   - name: azurefile-csi
+#     provisioner: file.csi.azure.com
+#     parameters:
+#       skuName: Standard_LRS
+#   - name: filestore-csi
+#     provisioner: filestore.csi.storage.gke.io
+#     volumeBindingMode: WaitForFirstConsumer
+#     parameters:
+#       tier: standard
+#       network: default
+
+# =============================================================================
 # Persistent Storage (static PersistentVolumes + PersistentVolumeClaims)
 # Ref: https://github.com/kubernetes-sigs/aws-efs-csi-driver
 #

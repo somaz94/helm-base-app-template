@@ -13,8 +13,9 @@ helm-base-app-template/
 │   ├── root.yaml                     #   root Application (apply once by hand)
 │   └── apps/                         #   child apps managing projects/ and appsets/
 ├── appsets/                          # ApplicationSet definitions (examples)
-│   ├── dev-my-project-applicationset.yaml
-│   └── qa1-my-project-applicationset.yaml
+│   ├── dev1-my-project-applicationset.yaml   # directory generator, globbed
+│   ├── qa1-my-project-applicationset.yaml    # directory generator, enumerated
+│   └── alpha-my-project-applicationset.yaml  # file generator, cloud chart
 ├── charts/                           # Helm charts — one per target platform
 │   ├── base/                         # Self-managed / on-premises (NFS, nginx, Gateway API)
 │   ├── base-aws/                     # AWS EKS (EFS + any CSI, ALB, IRSA)
@@ -34,18 +35,43 @@ helm-base-app-template/
 
 ### ApplicationSet Pattern
 
-Uses Matrix Generator combining cluster info + Git directory discovery.
+Uses Matrix Generator combining cluster info + Git discovery.
 
 ```
 ApplicationSet (Matrix Generator)
 ├── List Generator         → Defines cluster URL, project name, environment
-└── Git Generator          → Auto-discovers values/{project}/* directories
+└── Git Generator          → Discovers services under values/{project}/
     └── Template
         ├── App Name       → {environment}-{project}-{service}
-        ├── Source          → charts/base + values/{project}/{service}/{env}.values.yaml
+        ├── Source          → charts/<chart> + values/{project}/{service}/{env}.values.yaml
         ├── Destination     → Cluster URL + {environment}-{project} namespace
         └── Sync Policy    → Auto Prune + Self-Heal
 ```
+
+The Git half has two generator kinds — directory and file — and the directory one is used
+in two shapes. The choice is not cosmetic:
+
+| Form | Matches | Use when |
+|------|---------|----------|
+| `directories:` globbed (`values/{project}/*`) | every service directory | the environment should pick up new services on its own |
+| `directories:` enumerated | only the listed directories | a gated environment whose contents must stay a reviewed git change |
+| `files:` (`values/{project}/*/{env}.values.yaml`) | only services that have this env's values file | a service should opt in per environment |
+
+**A file generator needs an explicit `_deprecated` exclude; a directory generator does not.**
+Directory globs match only the immediate children of the path, so a retired
+`values/{project}/{service}/_deprecated/` sits one level too deep to be matched. A file glob
+crosses directory boundaries, reaches that file, and emits a broken Application named after
+`_deprecated`. Every file generator here therefore carries:
+
+```yaml
+- path: '**/_deprecated/**'
+  exclude: true
+```
+
+**Deleting an ApplicationSet deletes its Applications.** `spec.syncPolicy.preserveResourcesOnDeletion`
+defaults to `false`, so removing an appset file cascades down to every workload it generated.
+Note that the field lives on the ApplicationSet's own `spec.syncPolicy`, not on the
+`template`'s — putting it under the template is silently the wrong object.
 
 ### Deployment Flow
 
@@ -99,13 +125,18 @@ Helm chart for AWS EKS environments with EFS storage and ALB ingress. See [chart
 
 ### ApplicationSet List
 
-Two example ApplicationSets ship with this template. Copy one, point `repoURL` at your
-own repository, and rename `{project}` to your project.
+Three example ApplicationSets ship with this template, one per generator form. Copy the one
+whose discovery behavior you want, point `repoURL` at your own repository, and rename
+`{project}` to your project.
 
-| ApplicationSet | Environment | Chart | Services |
-|----------------|-------------|-------|----------|
-| dev-my-project | dev1 | base | auto-discovered from `values/my-project/*` |
-| qa1-my-project | qa1 | base | `game`, `admin`, `app-admin` (explicit paths) |
+| ApplicationSet | Environment | Chart | Generator | Services |
+|----------------|-------------|-------|-----------|----------|
+| dev1-my-project | dev1 | base | directory, globbed | auto-discovered from `values/my-project/*` |
+| qa1-my-project | qa1 | base | directory, enumerated | `api`, `admin`, `worker` |
+| alpha-my-project | alpha | base-aws | file | whichever have an `alpha.values.yaml` |
+
+The `alpha` example is the cloud-chart one: same file, pointed at an EKS cluster and
+`charts/base-aws`. Swapping in `base-azure` or `base-gcp` changes only the chart path.
 
 <br/>
 
@@ -126,7 +157,7 @@ cp values/my-project/admin/dev1.values.yaml values/my-project/new-service/dev1.v
 
 2. After git push, ArgoCD automatically detects and deploys.
 
-> **Note:** The ApplicationSet's Git Generator auto-discovers `values/{project}/*` directories, so adding a directory alone registers a new service without modifying the ApplicationSet.
+> **Note:** This is true for a globbed directory generator (the `dev1` example) — the directory alone registers the service. The `qa1` example enumerates its directories on purpose, so a new service reaches it only when you add the path there; the `alpha` example needs the service to have an `alpha.values.yaml`.
 
 ### Adding a New Environment
 
@@ -138,7 +169,11 @@ cp values/my-project/admin/dev1.values.yaml values/my-project/admin/dev2.values.
 # Modify for the target environment
 ```
 
-2. Add the environment to the ApplicationSet's list generator.
+2. Copy an ApplicationSet, rename it `{env}-{project}-applicationset`, and set the new
+   `environment` in its list generator. One appset per environment keeps the name, the
+   generated Application names and the namespace consistent — a single appset can serve
+   several environments from one list generator, but then its own name can no longer
+   follow the convention.
 
 ### Validating Values Files
 
@@ -332,7 +367,7 @@ Sync policies applied to all ApplicationSets:
 
 | Item | Pattern | Example |
 |------|---------|---------|
-| ApplicationSet | `{env}-{project}-applicationset` | `dev-my-project-applicationset` |
+| ApplicationSet | `{env}-{project}-applicationset` | `dev1-my-project-applicationset` |
 | Application | `{env}-{project}-{service}` | `dev1-my-project-admin` |
 | Namespace | `{env}-{project}` | `dev1-my-project` |
 | Values file | `{env}.values.yaml` | `dev1.values.yaml` |

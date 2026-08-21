@@ -1,8 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  # {env}-{project}-applicationset — qa1, matching the `environment` parameter below.
-  name: qa1-my-project-applicationset
+  # {env}-{project}-applicationset — alpha, matching the `environment` parameter below.
+  # The cloud-chart example: same pattern as the two on-premises appsets, pointed at
+  # charts/base-aws and an EKS cluster. Swap the chart path for base-azure or base-gcp and
+  # nothing else about this file changes — the chart is the only platform-specific part.
+  name: alpha-my-project-applicationset
   namespace: argocd
 spec:
   generators:
@@ -10,28 +13,32 @@ spec:
         generators:
           - list:
               elements:
-                - cluster: example-cluster # your cluster name
-                  url: https://192.168.1.17:6443 # your cluster url
+                - cluster: example-eks-cluster # your cluster name
+                  url: https://EXAMPLE1A2B3C4D5E6F.gr7.us-east-1.eks.amazonaws.com # your cluster url
                   values:
                     project: my-project
-                    environment: qa1
+                    environment: alpha
           - git:
               repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git # your source repo
               revision: HEAD
-              # DIRECTORY generator, enumerated: the deliberate opposite of the dev1 appset's
-              # glob. Listing the services means a new `values/{project}/{service}/` directory
-              # does NOT reach qa1 until someone adds it here — the set of things running in a
-              # gated environment stays a reviewed git change rather than a side effect of
-              # creating a directory. The cost is this list, which drifts if you forget it.
+              # FILE generator, the third form: an Application is created only for services
+              # that actually have an alpha values file, so a service can exist in dev1 without
+              # being dragged into this environment. A directory generator cannot express that
+              # — it matches the directory whether or not the env's values file is there, and
+              # the resulting Application fails to render.
               #
-              # Glob for environments you want to grow by themselves, enumerate for the ones
-              # that should not.
-              directories:
-                - path: values/my-project/api
-                - path: values/my-project/admin
-                - path: values/my-project/worker
+              # 🔴 The exclude below is MANDATORY here and is NOT symmetric with the directory
+              # generators above. A file glob crosses directory boundaries, so it descends into
+              # values/{project}/{service}/_deprecated/alpha.values.yaml and emits an
+              # Application named alpha-my-project-_deprecated whose valueFiles path does not
+              # exist — a permanent render failure. Directory generators never reach that far.
+              files:
+                - path: values/my-project/*/alpha.values.yaml
+                - path: '**/_deprecated/**'
+                  exclude: true
   template:
     metadata:
+      # path.basename is the directory holding the matched file, i.e. the service name.
       name: '{{values.environment}}-{{values.project}}-{{path.basename}}'
       labels:
         environment: '{{values.environment}}'
@@ -42,7 +49,7 @@ spec:
       source:
         repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git
         targetRevision: HEAD
-        path: charts/base
+        path: charts/base-aws
         helm:
           version: v3
           releaseName: '{{values.environment}}-{{values.project}}-{{path.basename}}'

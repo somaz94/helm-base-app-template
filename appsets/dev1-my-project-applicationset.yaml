@@ -1,8 +1,10 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  # {env}-{project}-applicationset — qa1, matching the `environment` parameter below.
-  name: qa1-my-project-applicationset
+  # {env}-{project}-applicationset. The env here is dev1, not dev — the name has to match
+  # the `environment` parameter below, because that parameter is what names every generated
+  # Application, namespace and Helm release.
+  name: dev1-my-project-applicationset
   namespace: argocd
 spec:
   generators:
@@ -14,22 +16,21 @@ spec:
                   url: https://192.168.1.17:6443 # your cluster url
                   values:
                     project: my-project
-                    environment: qa1
+                    environment: dev1
           - git:
               repoURL: git@gitlab.example.com:example-org/helm-base-app-template.git # your source repo
               revision: HEAD
-              # DIRECTORY generator, enumerated: the deliberate opposite of the dev1 appset's
-              # glob. Listing the services means a new `values/{project}/{service}/` directory
-              # does NOT reach qa1 until someone adds it here — the set of things running in a
-              # gated environment stays a reviewed git change rather than a side effect of
-              # creating a directory. The cost is this list, which drifts if you forget it.
+              # DIRECTORY generator, globbed: every service directory becomes an Application
+              # automatically, so adding a service to dev1 is `mkdir` + a values file, with no
+              # edit here. That is the right trade for a low-stakes environment — see the qa1
+              # appset for the opposite trade.
               #
-              # Glob for environments you want to grow by themselves, enumerate for the ones
-              # that should not.
+              # A directory generator matches only the IMMEDIATE children of the glob, so a
+              # retired `values/{project}/{service}/_deprecated/` sits one level too deep to be
+              # matched and needs no exclude. The alpha appset's FILE generator does not get
+              # that for free.
               directories:
-                - path: values/my-project/api
-                - path: values/my-project/admin
-                - path: values/my-project/worker
+                - path: values/my-project/*
   template:
     metadata:
       name: '{{values.environment}}-{{values.project}}-{{path.basename}}'
@@ -53,6 +54,8 @@ spec:
         server: '{{url}}'
         namespace: '{{values.environment}}-{{values.project}}'
       syncPolicy:
+        # Leaf workloads follow git exactly. The control plane above them does not — see
+        # bootstrap/apps/appsets-app.yaml for why those layers run prune: false.
         automated:
           prune: true
           selfHeal: true

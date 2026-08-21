@@ -18,6 +18,8 @@ jobs:
         chart:
           - charts/base
           - charts/base-aws
+          - charts/base-azure
+          - charts/base-gcp
     steps:
       - name: Checkout
         uses: actions/checkout@v6

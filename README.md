@@ -15,15 +15,11 @@ helm-base-app-template/
 ├── appsets/                          # ApplicationSet definitions (examples)
 │   ├── dev-my-project-applicationset.yaml
 │   └── qa1-my-project-applicationset.yaml
-├── charts/                           # Helm charts
-│   ├── base/                         # On-premises chart (NFS, nginx ingress)
-│   │   ├── templates/
-│   │   ├── values.yaml
-│   │   └── values.schema.json
-│   └── base-aws/                     # AWS EKS chart (EFS, ALB ingress)
-│       ├── templates/
-│       ├── values.yaml
-│       └── values.schema.json
+├── charts/                           # Helm charts — one per target platform
+│   ├── base/                         # Self-managed / on-premises (NFS, nginx, Gateway API)
+│   ├── base-aws/                     # AWS EKS (EFS + any CSI, ALB, IRSA)
+│   ├── base-azure/                   # Azure AKS (Azure Files/Disk, AGIC, Workload Identity)
+│   └── base-gcp/                     # GCP GKE (Filestore/PD, GKE Ingress, Workload Identity)
 ├── values/                           # Environment-specific Helm values — you create this
 │   └── {project}/
 │       └── {service}/
@@ -170,6 +166,44 @@ for env in dev1 qa1 prod; do
   helm lint charts/base/ -f values/my-project/admin/${env}.values.yaml
 done
 ```
+
+<br/>
+
+## Charts
+
+Four charts share one shape — the same values surface, the same templates, the same Argo
+Rollouts / PDB / ExternalSecret / Gateway API features — and differ only in their platform
+defaults. Pick by where the cluster runs.
+
+| Chart | Platform | Ingress | Storage | Identity |
+|-------|----------|---------|---------|----------|
+| `base` | Self-managed / on-prem | nginx, Gateway API | NFS, any CSI | — |
+| `base-aws` | AWS EKS | ALB, Gateway API | EFS + any CSI | IRSA |
+| `base-azure` | Azure AKS | Application Gateway (AGIC), Gateway API | Azure Files / Disk + any CSI | Entra Workload Identity |
+| `base-gcp` | GCP GKE | GKE Ingress + BackendConfig/FrontendConfig, Gateway API | Filestore / PD + any CSI | GKE Workload Identity |
+
+### Storage is driver-neutral everywhere
+
+`storage.persistentVolumes.items[]` (`efs.persistentVolumes.items[]` on `base-aws`, kept for
+backward compatibility) takes a `source` of `csi` or `nfs`. Every CSI driver works through the
+same fields — `driver`, `volumeHandle`, `volumeAttributes`, `nodeStageSecretRef`, `mountOptions`
+— so EFS, Azure Files, Azure Disk, Filestore, Persistent Disk and plain NFS all render from one
+template. Dynamic provisioning needs no PV at all: declare a PVC with a `storageClassName`.
+
+`storageClasses` optionally creates the StorageClasses too. That resource is **cluster-scoped**,
+so an ArgoCD AppProject delivering it must whitelist it or the whole Application rolls back:
+
+```yaml
+clusterResourceWhitelist:
+  - group: storage.k8s.io
+    kind: StorageClass
+```
+
+### Ingress is controller-neutral everywhere
+
+`ingress.className` + `ingress.annotations` drive any controller — ALB, AGIC, GKE Ingress,
+nginx, Traefik. Each chart's `values.yaml` documents its platform's annotation set. For
+Gateway API, use `httproute.*` instead, with an optional companion HTTPS-redirect route.
 
 <br/>
 

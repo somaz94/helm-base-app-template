@@ -1,0 +1,82 @@
+{{- if .Values.efs.persistentVolumes.enabled }}
+{{- range .Values.efs.persistentVolumes.items }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "base-aws.labels" $ | nindent 4 }}
+spec:
+  capacity:
+    storage: {{ .storage }}
+  volumeMode: {{ .volumeMode | default "Filesystem" }}
+  accessModes:
+    {{- toYaml .accessModes | nindent 4 }}
+  persistentVolumeReclaimPolicy: {{ .reclaimPolicy | default "Retain" }}
+  storageClassName: {{ .storageClassName }}
+  {{- with .mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- /*
+    Volume source. `source` selects the shape; it defaults to "csi" so every values file
+    written against the EFS-only chart keeps rendering byte-identical output.
+      csi — any CSI driver. `driver` defaults to efs.csi.aws.com and `volumeHandle` falls
+            back to the EFS handle assembled from fileSystemId (+ optional accessPointId),
+            so the legacy EFS fields still work unchanged. Set driver/volumeHandle
+            explicitly for file.csi.azure.com, disk.csi.azure.com,
+            filestore.csi.storage.gke.io, pd.csi.storage.gke.io, or any other driver.
+      nfs — a plain NFS export, for clusters with no CSI driver in front of the share.
+  */}}
+  {{- if eq (.source | default "csi") "nfs" }}
+  nfs:
+    server: {{ required "nfs source requires .server" .server }}
+    path: {{ required "nfs source requires .path" .path }}
+    readOnly: {{ .readOnly | default false }}
+  {{- else }}
+  csi:
+    driver: {{ .driver | default "efs.csi.aws.com" }}
+    {{- /*
+      `default` evaluates BOTH arguments, so the EFS fallback cannot be written as
+      `.volumeHandle | default (required ... .fileSystemId)` — the required would fire even
+      when volumeHandle IS set. Branch explicitly instead.
+    */}}
+    {{- if .volumeHandle }}
+    volumeHandle: {{ .volumeHandle }}
+    {{- else }}
+    volumeHandle: {{ required "csi source requires .volumeHandle (or the EFS .fileSystemId shorthand)" .fileSystemId }}{{- if .accessPointId }}::{{ .accessPointId }}{{- end }}
+    {{- end }}
+    {{- if .readOnly }}
+    readOnly: {{ .readOnly }}
+    {{- end }}
+    {{- if .fsType }}
+    fsType: {{ .fsType }}
+    {{- end }}
+    {{- /*
+      volumeAttributes: explicit map wins; otherwise fall back to the EFS `subPath`
+      shorthand, which is only meaningful when no access point is used (an access point
+      already pins its own path).
+    */}}
+    {{- if .volumeAttributes }}
+    volumeAttributes:
+      {{- toYaml .volumeAttributes | nindent 6 }}
+    {{- else if and (not .accessPointId) .subPath }}
+    volumeAttributes:
+      path: "{{ .subPath }}"
+    {{- end }}
+    {{- /*
+      nodeStageSecretRef: required by drivers that authenticate per-volume — notably
+      file.csi.azure.com, which reads the storage account key from this Secret.
+    */}}
+    {{- with .nodeStageSecretRef }}
+    nodeStageSecretRef:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .nodePublishSecretRef }}
+    nodePublishSecretRef:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

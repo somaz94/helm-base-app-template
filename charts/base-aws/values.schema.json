@@ -328,8 +328,20 @@
                                 "type": "object",
                                 "properties": {
                                     "name": { "type": "string" },
+                                    "source": { "type": "string", "enum": ["csi", "nfs"] },
+                                    "driver": { "type": "string" },
+                                    "volumeHandle": { "type": "string" },
+                                    "volumeAttributes": { "type": "object" },
+                                    "nodeStageSecretRef": { "type": "object" },
+                                    "nodePublishSecretRef": { "type": "object" },
+                                    "fsType": { "type": "string" },
+                                    "readOnly": { "type": "boolean" },
+                                    "mountOptions": { "type": "array", "items": { "type": "string" } },
+                                    "server": { "type": "string" },
+                                    "path": { "type": "string" },
                                     "fileSystemId": { "type": "string" },
                                     "accessPointId": { "type": "string" },
+                                    "subPath": { "type": "string" },
                                     "storage": { "type": "string" },
                                     "volumeMode": { "type": "string" },
                                     "accessModes": {
@@ -342,7 +354,12 @@
                                     },
                                     "storageClassName": { "type": "string" }
                                 },
-                                "required": ["name", "fileSystemId", "storage", "accessModes", "storageClassName"]
+                                "required": ["name", "storage", "accessModes", "storageClassName"],
+                                "anyOf": [
+                                    { "required": ["volumeHandle"] },
+                                    { "required": ["fileSystemId"] },
+                                    { "required": ["server", "path"] }
+                                ]
                             }
                         }
                     }

@@ -1,6 +1,6 @@
 # =============================================================================
 # Base-AWS Helm Chart - Default Values
-# AWS EKS Helm chart for TertiaryProject applications
+# AWS EKS Helm chart for Kubernetes applications
 # =============================================================================
 
 # -- Number of pod replicas
@@ -16,9 +16,9 @@ replicaCount: 1
 # Ref: https://kubernetes.io/docs/concepts/containers/images/
 # =============================================================================
 image:
-  repository: 123456789012.dkr.ecr.eu-central-1.amazonaws.com/tertiary-project/game
+  repository: 123456789012.dkr.ecr.eu-central-1.amazonaws.com/my-project/app
   pullPolicy: IfNotPresent
-  # -- Overrides the image tag whose default is the chart appVersion
+  # -- Image tag — REQUIRED per service (helm render fails if unset; no appVersion fallback)
   tag: ""
 
 # =============================================================================
@@ -104,7 +104,7 @@ ingress:
   #   alb.ingress.kubernetes.io/scheme: internet-facing
   #   alb.ingress.kubernetes.io/target-type: ip
   #   # Ingress Group - share a single ALB across multiple ingresses
-  #   alb.ingress.kubernetes.io/group.name: tertiary-project-shared-alb
+  #   alb.ingress.kubernetes.io/group.name: my-project-shared-alb
   #   alb.ingress.kubernetes.io/group.order: "3"  # 1-1000, lower = higher priority
   #   # Health check
   #   alb.ingress.kubernetes.io/healthcheck-path: /health
@@ -206,6 +206,24 @@ resources: {}
 # =============================================================================
 # Deployment Strategy
 # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+# Only used by templates/deployment.yaml — IGNORED when rollout.enabled=true (the Rollout
+# renders instead; tune rollout.canary.{maxSurge,maxUnavailable} there).
+#
+# The two rollingUpdate knobs are independent, and the SAME semantics apply to a canary
+# Rollout's maxSurge/maxUnavailable:
+#   maxSurge       = pods allowed ABOVE desired -> drives NODE growth (Karpenter)
+#   maxUnavailable = pods allowed DOWN at once  -> drives rollout SPEED / capacity dip
+# Both combos below are zero-downtime (ready never hits 0); they differ in what they trade.
+# Tune by replica scale:
+#   | replica | recommended                    | why                                          |
+#   |---------|--------------------------------|----------------------------------------------|
+#   | 2~3     | maxSurge:1 + maxUnavailable:0~1 | surge-first keeps ~100% capacity, one extra  |
+#   |         | (absolute)                     | node briefly; % would round up to a big dip  |
+#   | 10~20   | maxSurge:0 + maxUnavailable:20~25% | NO new node (pods recycle into freed slots),|
+#   |         |                                | many swap at once = fast; ~75% stay serving  |
+# Keep maxSurge an ABSOLUTE small int (not a %) at small scale — a percentage surge spins up
+# many nodes at once. maxSurge:0 only becomes right once the replica count is high enough that
+# the capacity dip is negligible.
 # =============================================================================
 strategy:
   # -- Enable custom deployment strategy (default: Kubernetes rolling update)
@@ -215,6 +233,173 @@ strategy:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: "50%"
+
+# =============================================================================
+# Argo Rollouts delivery (OPT-IN, disabled by default)
+# Ref: https://argo-rollouts.readthedocs.io/
+# When rollout.enabled=true, templates/rollout.yaml renders a Rollout INSTEAD of
+# templates/deployment.yaml (mutually exclusive). The pod template is shared with the
+# Deployment via the base-aws.podTemplate helper so the two never drift, and the existing
+# Service (<fullname>) is reused as the active Service. rollout.strategy picks the delivery
+# mode (default "blueGreen"):
+#   blueGreen — all-at-once active-TG swap on promotion; uses previewService + the
+#     <fullname>-preview Service/Ingress for a pre-promote readiness gate.
+#   canary — add-before-remove pod swap in a single active TG (maxUnavailable: 0 keeps the
+#     TG from ever going 0-healthy, removing the promotion-time ELB 503 race). No preview
+#     Service/Ingress is rendered.
+#
+# Analysis-driven promotion / rollback (blueGreen) is OPT-IN and needs NO app change today,
+# using infra-layer signals: a Web smoke-probe of the preview host (prePromotion) and ALB
+# CloudWatch 5xx / latency on the active target group (postPromotion, auto-rollback).
+# When the app later exposes /metrics, swap these AnalysisTemplates for a Prometheus RED
+# template (richer pre+post analysis) — the wiring below keeps the same shape.
+# =============================================================================
+rollout:
+  # -- Render a Rollout instead of a Deployment
+  enabled: false
+  # -- Delivery strategy: "canary" or "blueGreen". REQUIRED when rollout.enabled=true —
+  # there is NO silent default, so every service that enables a Rollout must choose its type
+  # explicitly per environment (render fails if unset or unknown). blueGreen swaps the active
+  # target group all-at-once on promotion; canary swaps pods add-before-remove in a single
+  # active target group (maxUnavailable: 0 keeps ready at desired, so the TG is never
+  # 0-healthy — removes the promotion-time ELB 503 race). canary briefly coexists old+new
+  # pods (mixed traffic), so pick it only for services that tolerate a request hitting either
+  # version. Left empty here so an unset value is caught rather than silently defaulted.
+  strategy: ""
+  # -- Canary knobs (only used when strategy: canary). No steps / no trafficRouting:
+  # a single active target group with add-before-remove pod replacement. maxSurge /
+  # maxUnavailable follow the same replica-scale tuning as the Deployment `strategy` block
+  # above (2~3 -> surge-first absolute 1; 10~20 -> maxSurge:0 + maxUnavailable %).
+  canary:
+    # -- Extra pods allowed ABOVE desired during the roll (add-before-remove). Keep an
+    # absolute 1 (not a %) so only one extra node is ever provisioned at a time.
+    maxSurge: 1
+    # -- Pods allowed DOWN at once. 0 keeps ready == desired throughout, so the active ALB
+    # target group never dips to 0-healthy (this is what closes the 503 race).
+    maxUnavailable: 0
+  blueGreen:
+    # -- Keep the old ReplicaSet serving this long after promote, until the new pods are
+    # healthy in the active ALB target group (pairs with deregistration_delay=30s -> no 502)
+    scaleDownDelaySeconds: 30
+    # -- Auto-promote once the preview is Healthy and prePromotionAnalysis (if set) passes.
+    # false = manual `kubectl argo rollouts promote`.
+    autoPromotionEnabled: false
+    # -- Preview replica count. null = full-replica preview (pilot default); set a small int
+    # only to shrink the preview at large scale.
+    previewReplicaCount: null
+  # -- Optional pre/post promotion analysis. Each renders only when its templates list is set;
+  # templateName refs point at AnalysisTemplates authored per service in the same namespace.
+  analysis:
+    prePromotion:
+      # e.g. - templateName: <fullname>-preview-smoke
+      templates: []
+      args: []
+    postPromotion:
+      # e.g. - templateName: <fullname>-alb-error-rate
+      templates: []
+      args: []
+
+# =============================================================================
+# AnalysisTemplates — Blue-Green promotion gates / auto-rollback signals (OPT-IN)
+# Ref: https://argo-rollouts.readthedocs.io/en/stable/features/analysis/
+# Each list item renders one argoproj.io/v1alpha1/AnalysisTemplate (name + spec, rendered
+# verbatim). The rollout.analysis.{pre,post}Promotion.templates refs above point at these by
+# templateName. Empty by default -> renders nothing, so services without analysis stay
+# byte-identical. The chart is language-agnostic: each service supplies its own metrics per
+# service (Web smoke of the in-cluster preview Service, ALB CloudWatch on the active target
+# group, or a Prometheus RED query once the app exposes /metrics).
+# Example (authored in a per-service values file, not here):
+#   analysisTemplates:
+#     - name: <fullname>-preview-smoke     # prePromotion: probe the in-cluster preview Service
+#       spec:
+#         metrics:
+#           - name: preview-2xx
+#             provider:
+#               web:
+#                 url: http://<fullname>-preview/health
+#                 jsonPath: "{$.status}"
+#             successCondition: "result == 'ok'"
+#     - name: <fullname>-alb-error-rate    # postPromotion: ALB CloudWatch on the active TG
+#       spec:
+#         metrics:
+#           - name: alb-5xx
+#             provider:
+#               cloudWatch:
+#                 region: eu-central-1
+#                 metricDataQueries: [ ... FILL(m,0) so no-data reads 0 ... ]
+#             failureCondition: "..."
+analysisTemplates: []
+
+# =============================================================================
+# Ingress - Preview (Blue-Green preview target)
+# Binds the <fullname>-preview Service to an ALB target group so preview pods satisfy the
+# namespace-level ALB readiness gate (else the rollout stalls) and give a real pre-promote
+# verification path. Renders only when rollout.enabled AND rollout.strategy=blueGreen AND
+# ingressPreview.enabled (canary has no preview target group, so it is skipped there).
+# Intended for the internal platform ALB (operator inbound-cidrs).
+# =============================================================================
+ingressPreview:
+  # -- Enable the preview ingress (only meaningful with rollout.enabled + strategy: blueGreen)
+  enabled: false
+  # className: "alb"
+  # annotations:
+  #   alb.ingress.kubernetes.io/scheme: internet-facing
+  #   alb.ingress.kubernetes.io/target-type: ip
+  #   alb.ingress.kubernetes.io/group.name: my-project-platform-alb
+  #   alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/32   # MUST match the platform-alb group value
+  #   alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+  # hosts:
+  #   - host: preview-app.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+
+# =============================================================================
+# Graceful Shutdown
+# Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+# On termination Kubernetes sends SIGTERM, then SIGKILL after the grace period.
+# For stateful workloads (e.g. game servers holding in-memory sessions), set a
+# grace period long enough to drain sessions, and add a preStop hook if the app
+# does not drain on SIGTERM by itself. Both are unset by default (k8s default:
+# 30s grace, no preStop) so existing apps are unaffected.
+# =============================================================================
+# -- Pod termination grace period in seconds (unset -> Kubernetes default of 30)
+# Increase for workloads that need time to drain connections/sessions on shutdown.
+terminationGracePeriodSeconds: ""
+  # terminationGracePeriodSeconds: 60
+
+# -- Container lifecycle hooks (e.g. preStop for connection/session draining)
+# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/attach-handler-lifecycle-event/
+lifecycle: {}
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "sleep 15"]
+
+# =============================================================================
+# Init Containers
+# Ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+# =============================================================================
+initContainers:
+  # -- Enable init containers (runs before main container starts)
+  enabled: false
+  # items:
+  #   - name: data-downloader
+  #     image: alpine:latest
+  #     imagePullPolicy: IfNotPresent
+  #     command: ["/bin/sh", "-c", "echo hello"]
+  #     env:
+  #       - name: FILE_SERVER_URL
+  #         value: "https://file-server.example.com"
+  #     volumeMounts:
+  #       - name: data-volume
+  #         mountPath: /app/data
+  #     resources:
+  #       requests:
+  #         memory: "64Mi"
+  #         cpu: "50m"
+  #       limits:
+  #         memory: "128Mi"
+  #         cpu: "100m"
 
 # =============================================================================
 # Probes
@@ -274,6 +459,23 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # =============================================================================
+# PodDisruptionBudget
+# Ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+# Caps how many pods may be evicted during VOLUNTARY disruptions (node drain,
+# Karpenter consolidation, rollout). Required to make Karpenter
+# WhenEmptyOrUnderutilized consolidation zero-downtime — without it a node drain can
+# evict every replica of a service at once. Only meaningful at replica >= 2.
+# Set EITHER minAvailable OR maxUnavailable (not both). Disabled by default.
+# =============================================================================
+podDisruptionBudget:
+  # -- Enable a PodDisruptionBudget for this workload
+  enabled: false
+  # -- Minimum pods that must stay Ready during a voluntary disruption
+  minAvailable: 1
+  # -- Alternative to minAvailable (do not set both)
+  # maxUnavailable: 1
+
+# =============================================================================
 # RBAC
 # Ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 # =============================================================================
@@ -292,6 +494,18 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# -- Pod topology spread constraints (opt-in; empty renders nothing).
+# Set per service to spread replicas across nodes/zones. Each entry is passed
+# through verbatim, so include a labelSelector matching the service's pods.
+topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: kubernetes.io/hostname
+  #   whenUnsatisfiable: DoNotSchedule
+  #   labelSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: my-service
+  #       app.kubernetes.io/instance: my-release
 
 # =============================================================================
 # Environment Variables
@@ -313,6 +527,26 @@ configs:
   #       SERVER_PORT: "8080"
   #       REDIS_HOST: "redis.namespace.svc.cluster.local"
   #       REDIS_PORT: "6379"
+
+# =============================================================================
+# External Secrets (ESO)
+# Ref: https://external-secrets.io/
+# Renders an ExternalSecret that pulls secret material from an external store
+# (e.g. AWS Secrets Manager via the cluster ClusterSecretStore) into a Secret named
+# "<fullname>-secret", which the Deployment consumes via envFrom.secretRef.
+# The secretRef is injected AFTER configMapRef, so secret-backed keys win on collision.
+# =============================================================================
+externalSecrets:
+  # -- Enable ExternalSecret creation and envFrom secretRef injection
+  enabled: false
+  # -- How often ESO reconciles the backing store into the Secret
+  # refreshInterval: "1h"
+  # secretStoreRef:
+  #   name: aws-secretsmanager
+  #   kind: ClusterSecretStore
+  # dataFrom:
+  #   - extract:
+  #       key: prod-my-project/app
 
 # =============================================================================
 # Extra Volumes & Mounts
@@ -362,3 +596,19 @@ efs:
     #     mountPath: "/app/data"           # Auto-mounted to main container
     #     selector:                        # Optional: bind to specific PV
     #       volumeName: "app-data-pv"
+
+# =============================================================================
+# Extra Objects
+# Generic escape hatch for arbitrary extra manifests rendered alongside the app.
+# Each item is a full manifest, passed through `tpl` with the root context so it
+# may reference release values. Used e.g. for an OpenTelemetry Instrumentation CR
+# co-located with the pod auto-instrumentation annotation. Empty by default.
+# =============================================================================
+extraObjects: []
+#   - apiVersion: opentelemetry.io/v1alpha1
+#     kind: Instrumentation
+#     metadata:
+#       name: my-instrumentation
+#     spec:
+#       exporter:
+#         endpoint: http://otel-collector-opentelemetry-collector.monitoring:4317

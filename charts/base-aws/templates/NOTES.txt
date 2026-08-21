@@ -20,3 +20,14 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+{{- if and .Values.rollout.enabled (eq .Values.rollout.strategy "blueGreen") (not .Values.ingressPreview.enabled) }}
+
+WARNING: rollout.strategy=blueGreen but ingressPreview.enabled=false.
+  In a namespace with the ALB pod-readiness-gate injected,
+  the Blue-Green preview pods inherit the gate and can only go Ready once their IPs are
+  healthy in an ALB target group. Without the preview Ingress there is no such target
+  group, so the preview ReplicaSet never becomes Ready and the promotion hangs
+  indefinitely. Set ingressPreview.enabled=true (backed by the internal platform ALB)
+  alongside rollout.enabled. (canary needs no preview target group, so this does not apply
+  to strategy: canary.)
+{{- end }}

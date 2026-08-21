@@ -1,6 +1,6 @@
 # Base-AWS Helm Chart
 
-AWS EKS Helm chart for TertiaryProject applications.
+AWS EKS Helm chart for Kubernetes applications.
 
 <br/>
 
@@ -81,7 +81,7 @@ ALB (shared via group.name)
 |-----------|---------|-------------|
 | `environment` | - | Environment name → `ENVIRONMENT` env var |
 | `version` | - | Version label for routing |
-| `image.tag` | `""` | Image tag (defaults to `appVersion`) |
+| `image.tag` | `""` | Image tag — required per service (render fails if unset) |
 | `service.targetPort` | `8080` | Container port |
 | `ingress.enabled` | `false` | Enable main ALB ingress |
 | `ingressReview.enabled` | `false` | Enable review ingress (iOS) |
@@ -168,7 +168,8 @@ for env in dev qa prod; do
 done
 ```
 
-> **Note:** The `base-aws` chart was built for the tertiary-project project, which is currently deprecated.
+> **Note:** `base-aws` targets EKS — EFS CSI volumes, ALB ingress, IRSA service accounts, and
+> optional Argo Rollouts blue-green / canary delivery. For self-managed clusters use `base` instead.
 
 <br/>
 

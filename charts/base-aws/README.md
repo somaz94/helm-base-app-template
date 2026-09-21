@@ -127,7 +127,7 @@ Key ALB annotations used:
 | `alb.ingress.kubernetes.io/scheme` | `internet-facing` or `internal` |
 | `alb.ingress.kubernetes.io/target-type` | `ip` (required for Fargate/VPC CNI) |
 | `alb.ingress.kubernetes.io/group.name` | Shared ALB group name |
-| `alb.ingress.kubernetes.io/group.order` | Priority within ALB group (1-1000) |
+| `alb.ingress.kubernetes.io/group.order` | Priority within ALB group (-1000 to 1000, default 0) |
 | `alb.ingress.kubernetes.io/certificate-arn` | ACM certificate ARN for TLS |
 | `alb.ingress.kubernetes.io/conditions.*` | Header/path-based routing conditions |
 | `alb.ingress.kubernetes.io/actions.*` | Target group forwarding actions |

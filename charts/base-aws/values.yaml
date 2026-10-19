@@ -475,15 +475,6 @@ podDisruptionBudget:
   # maxUnavailable: 1
 
 # =============================================================================
-# RBAC
-# Ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-# =============================================================================
-rbac:
-  # -- Enable RBAC resource creation
-  # NOTE: Template files for Role/RoleBinding are not yet implemented.
-  enabled: false
-
-# =============================================================================
 # Scheduling
 # =============================================================================
 # -- Node selector for pod scheduling (e.g., target specific EKS node groups)

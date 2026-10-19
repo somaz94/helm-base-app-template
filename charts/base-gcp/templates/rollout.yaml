@@ -2,7 +2,7 @@
 # Argo Rollouts delivery — renders INSTEAD of templates/deployment.yaml (mutually
 # exclusive via rollout.enabled). The pod template is shared with the Deployment through
 # the base-gcp.podTemplate helper so the two never drift. The strategy is selected by
-# rollout.strategy (default "blueGreen"):
+# rollout.strategy (required, no default):
 #   blueGreen — activeService reuses the existing Service (<fullname>); previewService is
 #     the new <fullname>-preview Service. Argo injects rollouts-pod-template-hash into both
 #     Services' selectors, so no manual version wiring is needed. Promotion swaps the active

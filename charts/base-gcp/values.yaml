@@ -213,7 +213,7 @@ strategy:
 # templates/deployment.yaml (mutually exclusive). The pod template is shared with the
 # Deployment via the base-gcp.podTemplate helper so the two never drift, and the existing
 # Service (<fullname>) is reused as the active Service. rollout.strategy picks the delivery
-# mode (default "blueGreen"):
+# mode (required, no default):
 #   blueGreen — all-at-once active-TG swap on promotion; uses previewService + the
 #     <fullname>-preview Service/Ingress for a pre-promote readiness gate.
 #   canary — add-before-remove pod swap in a single active TG (maxUnavailable: 0 keeps the
@@ -442,15 +442,6 @@ podDisruptionBudget:
   minAvailable: 1
   # -- Alternative to minAvailable (do not set both)
   # maxUnavailable: 1
-
-# =============================================================================
-# RBAC
-# Ref: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-# =============================================================================
-rbac:
-  # -- Enable RBAC resource creation
-  # NOTE: Template files for Role/RoleBinding are not yet implemented.
-  enabled: false
 
 # =============================================================================
 # Scheduling

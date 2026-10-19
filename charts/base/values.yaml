@@ -109,8 +109,6 @@ service:
 # Ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
 # =============================================================================
 ingress:
-  # -- Name suffix for the ingress resource
-  name: base-ingress
   # -- Enable ingress resource creation
   enabled: false
   # className: "nginx"
@@ -199,7 +197,6 @@ startupProbe: {}
   # timeoutSeconds: 3          # Max wait for single probe response
 
 # -- Liveness probe configuration (empty = no probe)
-# WARNING: Setting to {} will render an empty probe block. Set specific probe config or leave empty.
 livenessProbe: {}
   # httpGet:
   #   path: /health
@@ -388,9 +385,8 @@ storageClasses: []
 #     volumeBindingMode: WaitForFirstConsumer
 
 # =============================================================================
-# Persistent Volumes (NFS)
+# Persistent Volumes (NFS default, CSI via source: csi)
 # Ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
-# NOTE: Currently hardcoded to NFS backend only
 # =============================================================================
 persistentVolumes:
   # -- Enable PersistentVolume creation

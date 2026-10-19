@@ -12,22 +12,16 @@ Generic Helm chart for self-managed / on-premises Kubernetes clusters: NFS or an
 
 ## Templates
 
-| Template | Resource | Description |
-|----------|----------|-------------|
-| `deployment.yaml` | Deployment | Main workload with init containers, env injection, volume mounts |
-| `service.yaml` | Service | ClusterIP/NodePort/LoadBalancer with version-based selector |
-| `ingress.yaml` | Ingress | nginx ingress with TLS support |
-| `serviceaccount.yaml` | ServiceAccount | Optional SA with annotations |
-| `hpa.yaml` | HorizontalPodAutoscaler | CPU/memory-based autoscaling (v2) |
-| `configmap.yaml` | ConfigMap | Multiple ConfigMaps with envFrom injection |
-| `pv.yaml` | PersistentVolume | Static PVs — NFS export or any CSI driver |
-| `storageclass.yaml` | StorageClass | Optional cluster-scoped StorageClass creation |
-| `pvc.yaml` | PersistentVolumeClaim | PVCs with optional PV selector binding |
-| `imagePullSecret.yaml` | Secret | Docker registry credentials (dockerconfigjson) |
-| `certificate.yaml` | Certificate | cert-manager Certificate (Route53/CloudDNS) |
-| `cert-cronjob.yaml` | CronJob | Daily cleanup of old CertificateRequests and Jobs |
-| `_helpers.tpl` | - | Helper templates (name, labels, imagePullSecret) |
-| `NOTES.txt` | - | Post-install instructions |
+The [templates/](templates/) directory is the SSOT for the full set of rendered resources — the file name is the resource, so the listing is not duplicated here.
+
+Grouped by feature:
+
+- **Workload**: Deployment, Service, ServiceAccount, HorizontalPodAutoscaler, ConfigMap
+- **Traffic**: nginx Ingress, Gateway API HTTPRoute
+- **Storage**: static PersistentVolume, PersistentVolumeClaim, optional StorageClass (NFS or any CSI driver)
+- **Certificates & credentials**: cert-manager Certificate with its cleanup CronJob, Docker registry pull Secret
+
+Everything except Deployment and Service is toggled by an `enabled` flag (or a list value) in `values.yaml`.
 
 <br/>
 
@@ -70,6 +64,7 @@ Generic Helm chart for self-managed / on-premises Kubernetes clusters: NFS or an
 | `image.tag` | `""` | Image tag — required per service (render fails if unset) |
 | `service.targetPort` | `8080` | Container port |
 | `ingress.enabled` | `false` | Enable ingress |
+| `httproute.enabled` | `false` | Enable Gateway API HTTPRoute creation |
 | `autoscaling.enabled` | `false` | Enable HPA |
 | `strategy.enabled` | `false` | Enable custom deployment strategy |
 | `configs.enabled` | `false` | Enable ConfigMap creation |
@@ -81,6 +76,8 @@ Generic Helm chart for self-managed / on-premises Kubernetes clusters: NFS or an
 | `certificate.enabled` | `false` | Enable cert-manager Certificate |
 | `certCleanup.enabled` | `false` | Enable cert cleanup CronJob |
 | `imageCredentials.enabled` | `false` | Generate docker registry Secret (off — pull secret delivered externally via cluster-wide SealedSecret) |
+
+This table covers the commonly used toggles only. `values.yaml` and `values.schema.json` are the SSOT for the full key set and its constraints; the table tracks them.
 
 <br/>
 

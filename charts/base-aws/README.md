@@ -6,42 +6,32 @@ AWS EKS Helm chart for Kubernetes applications.
 
 ## Overview
 
-Specialized Helm chart for AWS EKS clusters with EFS CSI storage, AWS ALB ingress (including header-based routing), and multiple ingress types. Used by ArgoCD ApplicationSet with Matrix Generator pattern.
+Specialized Helm chart for AWS EKS clusters with driver-neutral static storage (EFS CSI by default), AWS ALB ingress (including header-based routing), multiple ingress types, and Gateway API HTTPRoute. Used by ArgoCD ApplicationSet with Matrix Generator pattern.
 
 <br/>
 
 ## Templates
 
-| Template | Resource | Description |
-|----------|----------|-------------|
-| `deployment.yaml` | Deployment | Main workload with EFS mounts, env injection (suppressed when `rollout.enabled`) |
-| `rollout.yaml` | Rollout | Argo Rollouts workload rendered *instead of* the Deployment |
-| `analysistemplate.yaml` | AnalysisTemplate | Promotion/rollback analysis definitions from `analysisTemplates` |
-| `service.yaml` | Service | ClusterIP/NodePort/LoadBalancer with version selector |
-| `ingress.yaml` | Ingress | Main ALB ingress with Client-Version header routing |
-| `ingress-review.yaml` | Ingress | iOS app review traffic with version-specific routing |
-| `ingress-health.yaml` | Ingress | Dedicated health check endpoint (no header conditions) |
-| `ingress-api-docs.yaml` | Ingress | API documentation endpoint |
-| `serviceaccount.yaml` | ServiceAccount | Optional SA with IRSA annotations |
-| `hpa.yaml` | HorizontalPodAutoscaler | CPU/memory-based autoscaling (v2) |
-| `configmap.yaml` | ConfigMap | Multiple ConfigMaps with envFrom injection |
-| `efs-pv.yaml` | PersistentVolume | EFS CSI-backed PVs with Access Point support |
-| `efs-pvc.yaml` | PersistentVolumeClaim | PVCs with optional static PV binding |
-| `service-preview.yaml` | Service | Blue-green preview Service (`<fullname>-preview`) |
-| `ingress-preview.yaml` | Ingress | Binds the preview Service to an ALB target group |
-| `pdb.yaml` | PodDisruptionBudget | Voluntary-disruption floor for the workload |
-| `externalsecret.yaml` | ExternalSecret | ESO-managed Secret, injected via `envFrom` |
-| `extra-objects.yaml` | any | Escape hatch: arbitrary manifests from `extraObjects` |
-| `_helpers.tpl` | - | Helper templates (name, labels, shared pod template) |
-| `NOTES.txt` | - | Post-install instructions |
+The [templates/](templates/) directory is the SSOT for the full set of rendered resources — the file name is the resource, so the listing is not duplicated here.
+
+Grouped by feature:
+
+- **Workload**: Deployment or an Argo Rollouts Rollout (`rollout.enabled` picks one), Service, ServiceAccount (IRSA), HorizontalPodAutoscaler, PodDisruptionBudget, ConfigMap
+- **Traffic**: purpose-specific ALB Ingresses sharing a single ALB group, plus a Gateway API HTTPRoute
+- **Progressive delivery**: blue-green preview Service and the AnalysisTemplates backing the promotion gate / auto-rollback signal
+- **Storage**: driver-neutral static PersistentVolume, PersistentVolumeClaim, optional StorageClass
+- **Secrets & escape hatch**: ExternalSecret (External Secrets Operator) and arbitrary manifests via extraObjects
+
+Everything except Deployment and Service is toggled by an `enabled` flag (or a list value) in `values.yaml`.
 
 <br/>
 
 ## Features
 
-- **AWS ALB Ingress**: 4 ingress types (main, review, health, api-docs) with shared ALB group
+- **AWS ALB Ingress**: purpose-specific ingresses share a single ALB via `group.name`, each enabled independently by its own toggle
 - **Client-Version routing**: Header-based routing via ALB conditions/actions annotations
-- **EFS CSI storage**: PersistentVolumes with EFS file system ID and Access Point support
+- **Driver-neutral storage**: Static PVs for EFS / Azure Files & Disk / GCP Filestore & PD / plain NFS. The EFS shorthand (`fileSystemId`[+`accessPointId`]) keeps working unchanged
+- **Gateway API HTTPRoute**: Ingress alternative that works with any GatewayClass (off by default)
 - **Environment injection**: `environment` value auto-injected as `ENVIRONMENT` env var
 - **Version-based routing**: `version` label on pods for canary/blue-green deployments
 - **Argo Rollouts delivery**: opt-in blue-green or canary, sharing one pod template with the Deployment
@@ -55,16 +45,10 @@ Specialized Helm chart for AWS EKS clusters with EFS CSI storage, AWS ALB ingres
 
 ## Ingress Architecture
 
-```
-ALB (shared via group.name)
-├── ingress-health.yaml     [priority 1] /health*     → no header condition
-├── ingress-api-docs.yaml   [priority 2] /api-docs*   → no header condition
-├── ingress.yaml            [priority 3] /*            → Client-Version header match
-└── ingress-review.yaml     [priority 4] /*            → Client-Version header match (review)
-```
+Every `ingress*` template joins one ALB by sharing the same `alb.ingress.kubernetes.io/group.name`. Which ingresses render is decided by their individual `enabled` toggles; their match order inside the ALB group is decided by the `alb.ingress.kubernetes.io/group.order` annotation set on each one. That annotation is the SSOT for priority, so the ordering is not duplicated here.
 
 - `group.order`: Lower number = higher priority
-- Health and API docs ingresses bypass Client-Version header filtering
+- Public-endpoint ingresses such as health and API docs bypass Client-Version header filtering
 - Main and review ingresses use `alb.ingress.kubernetes.io/conditions.*` for header-based routing
 
 <br/>
@@ -97,24 +81,43 @@ ALB (shared via group.name)
 | `ingressReview.enabled` | `false` | Enable review ingress (iOS) |
 | `ingressHealth.enabled` | `false` | Enable health check ingress |
 | `ingressApiDocs.enabled` | `false` | Enable API docs ingress |
+| `ingressPreview.enabled` | `false` | Enable blue-green preview ingress (blueGreen rollout only) |
 | `autoscaling.enabled` | `false` | Enable HPA |
+| `podDisruptionBudget.enabled` | `false` | Enable a PodDisruptionBudget (only meaningful at replicas >= 2) |
 | `strategy.enabled` | `false` | Enable custom deployment strategy |
+| `rollout.enabled` | `false` | Render an Argo Rollouts Rollout instead of a Deployment (`rollout.strategy` required) |
+| `analysisTemplates` | `[]` | AnalysisTemplates for the promotion gate / auto-rollback signal |
 | `configs.enabled` | `false` | Enable ConfigMap creation |
-| `efs.persistentVolumes.enabled` | `false` | Enable EFS PV creation |
-| `efs.persistentVolumeClaims.enabled` | `false` | Enable EFS PVC creation |
+| `externalSecrets.enabled` | `false` | Enable ExternalSecret creation and envFrom secretRef injection |
+| `efs.persistentVolumes.enabled` | `false` | Enable static PV creation |
+| `efs.persistentVolumeClaims.enabled` | `false` | Enable PVC creation |
+| `httproute.enabled` | `false` | Enable Gateway API HTTPRoute creation |
+| `storageClasses` | `[]` | StorageClasses to create (nothing renders while empty) |
+
+This table covers the commonly used toggles only. `values.yaml` and `values.schema.json` are the SSOT for the full key set and its constraints; the table tracks them.
 
 <br/>
 
-### EFS Configuration
+### Storage Configuration
 
-Each PV item requires:
+The `efs:` key name is kept for backward compatibility, but PV items themselves are driver-neutral. Each item picks a volume shape with `source` (defaults to `csi`).
 
 | Parameter | Description |
 |-----------|-------------|
-| `fileSystemId` | EFS file system ID (required, e.g., `fs-0123456789abcdef0`) |
+| `source` | Volume shape — `csi` (default) or `nfs` |
+| `driver` | CSI driver (defaults to `efs.csi.aws.com`) |
+| `volumeHandle` | CSI volume handle. Falls back to `fileSystemId`[`::accessPointId`] when unset |
+| `volumeAttributes` | CSI volume attribute map. Falls back to the `subPath` shorthand when unset |
+| `nodeStageSecretRef` / `nodePublishSecretRef` | For drivers that authenticate per volume (e.g., `file.csi.azure.com`) |
+| `fsType` / `mountOptions` / `readOnly` | Block volume and mount options |
+| `server` / `path` | `source: nfs` only — NFS server and export path |
+| `fileSystemId` | EFS file system ID shorthand (e.g., `fs-0123456789abcdef0`) |
 | `accessPointId` | EFS Access Point ID (optional, e.g., `fsap-0123456789abcdef0`) |
+| `subPath` | Path, only meaningful when no Access Point is used |
 | `storage` | Storage capacity (e.g., `5Gi`) |
 | `storageClassName` | Storage class (e.g., `efs-sc`) |
+
+At least one of `volumeHandle` / `fileSystemId` / (`server` + `path`) must be present; the `anyOf` in `values.schema.json` enforces it.
 
 <br/>
 
@@ -215,11 +218,10 @@ helm lint charts/base-aws/ -f my-values.yaml
 # Strict mode lint (treats warnings as errors, validates against values.schema.json)
 helm lint charts/base-aws/ -f my-values.yaml --strict
 
-# Render templates
-helm template test charts/base-aws/
-
-# Render with your own values
+# Render templates. image.tag is required per service, so a bare render fails by
+# design — supply it from your values file or on the command line.
 helm template test charts/base-aws/ -f my-values.yaml
+helm template test charts/base-aws/ --set image.tag=v1.0.0
 
 # Debug mode rendering (verbose output on errors)
 helm template test charts/base-aws/ -f my-values.yaml --debug

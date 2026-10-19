@@ -76,7 +76,6 @@
             "type": "object",
             "properties": {
                 "enabled": { "type": "boolean" },
-                "name": { "type": "string" },
                 "className": { "type": "string" },
                 "annotations": { "type": "object" },
                 "hosts": {
@@ -200,7 +199,6 @@
         "rbac": {
             "type": "object",
             "properties": {
-                "enabled": { "type": "boolean" },
                 "serviceAccountName": { "type": "string" }
             }
         },

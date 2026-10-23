@@ -49,7 +49,7 @@ Specialized Helm chart for Azure AKS clusters: Application Gateway ingress via A
 - **Argo Rollouts delivery**: opt-in blue-green or canary, sharing one pod template with the Deployment
 - **PodDisruptionBudget**: optional voluntary-disruption floor
 - **External Secrets**: optional ESO `ExternalSecret` injected into the pod via `envFrom`
-- **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables
+- **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables; a `configs` change rolls the pods via the `configs-checksum` annotation (an ExternalSecret value change does not)
 - **Microsoft Entra Workload Identity**: ServiceAccount annotations
 - **Schema validation**: `values.schema.json` validates input values
 

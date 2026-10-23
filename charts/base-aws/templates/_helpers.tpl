@@ -75,6 +75,10 @@ never drift. Rendered verbatim under `spec.template:` with the original 4-space 
         {{- if and .Values.initContainers (and .Values.initContainers.enabled .Values.initContainers.items) }}
         init-containers-checksum: {{ .Values.initContainers | toJson | sha256sum }}
         {{- end }}
+        {{- if and .Values.configs (and .Values.configs.enabled .Values.configs.items) }}
+        {{- /* envFrom is read only at container start, so a ConfigMap change needs a new pod. */}}
+        configs-checksum: {{ .Values.configs.items | toJson | sha256sum }}
+        {{- end }}
       labels:
         {{- include "base-aws.selectorLabels" . | nindent 8 }}
         {{- if .Values.version }}

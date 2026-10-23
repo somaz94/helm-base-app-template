@@ -33,7 +33,7 @@ Everything except Deployment and Service is toggled by an `enabled` flag (or a l
 - **EmptyDir volumes**: Ephemeral volumes with size limits and medium support
 - **Any storage backend**: static PVs from an NFS export or any CSI driver, dynamic provisioning via `storageClassName`, and optional `StorageClass` creation
 - **Extra volumes**: Escape hatch for volumes/mounts not covered by built-in types
-- **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables
+- **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables; a `configs` change rolls the pods via the `configs-checksum` annotation
 - **cert-manager**: Certificate resource with automated cleanup CronJob
 - **Schema validation**: `values.schema.json` validates input values
 

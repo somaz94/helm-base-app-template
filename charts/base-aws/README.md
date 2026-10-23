@@ -37,7 +37,7 @@ Everything except Deployment and Service is toggled by an `enabled` flag (or a l
 - **Argo Rollouts delivery**: opt-in blue-green or canary, sharing one pod template with the Deployment
 - **PodDisruptionBudget**: optional voluntary-disruption floor
 - **External Secrets**: optional ESO `ExternalSecret` injected into the pod via `envFrom`
-- **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables
+- **ConfigMap envFrom**: Multiple ConfigMaps auto-loaded as environment variables; a `configs` change rolls the pods via the `configs-checksum` annotation (an ExternalSecret value change does not)
 - **IRSA support**: ServiceAccount annotations for IAM Roles for Service Accounts
 - **Schema validation**: `values.schema.json` validates input values
 

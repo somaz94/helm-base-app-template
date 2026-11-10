@@ -134,7 +134,6 @@
                         "properties": {
                             "matches": { "type": "array" },
                             "filters": { "type": "array" },
-                            "timeouts": { "type": "object" },
                             "backendRefs": {
                                 "type": "array",
                                 "items": {
@@ -145,6 +144,20 @@
                                         "weight": { "type": "integer" }
                                     }
                                 }
+                            }
+                        }
+                    }
+                },
+                "proxySettingsPolicy": {
+                    "type": "object",
+                    "properties": {
+                        "timeout": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "connect": { "type": "string", "pattern": "^[0-9]{1,4}(ms|s|m|h)?$" },
+                                "read": { "type": "string", "pattern": "^[0-9]{1,4}(ms|s|m|h)?$" },
+                                "send": { "type": "string", "pattern": "^[0-9]{1,4}(ms|s|m|h)?$" }
                             }
                         }
                     }

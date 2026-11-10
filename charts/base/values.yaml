@@ -153,13 +153,23 @@ httproute:
   #         # queryParams: []          # optional
   #         # method: GET              # optional
   #     # filters:                     # optional — URLRewrite / RequestRedirect / RequestHeaderModifier etc.
-  #     # timeouts:                    # optional
-  #     #   request: 60s
-  #     #   backendRequest: 30s
+  #     # No `timeouts:` here: NGF ignores it, so the chart fails the render. Use
+  #     # proxySettingsPolicy.timeout below.
   #     # backendRefs:                 # optional — omit to auto-wire to this release's Service
   #     #   - # name defaults to chart fullname
   #     #     # port defaults to service.port
   #     #     port: 80
+  #
+  # NGF ProxySettingsPolicy on the main HTTPRoute, rendered only when `timeout` is set
+  # (NGF 2.6+). read/send bound the gap between two reads/writes, not the whole request;
+  # nginx defaults are 60s. The project's AppProject must whitelist
+  # gateway.nginx.org/ProxySettingsPolicy, or the whole sync fails.
+  proxySettingsPolicy:
+    timeout: {}
+    # timeout:
+    #   connect: 10s
+    #   read: 300s
+    #   send: 300s
   #
   # HTTP → HTTPS 301 redirect (sibling HTTPRoute attached to the HTTP listener).
   # Main parentRefs must bind to the HTTPS listener via sectionName: https.

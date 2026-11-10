@@ -67,9 +67,8 @@ spec:
       filters:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .timeouts }}
-      timeouts:
-        {{- toYaml . | nindent 8 }}
+      {{- if .timeouts }}
+      {{- fail "httproute.rules[].timeouts is ignored by NGINX Gateway Fabric (route status UnsupportedField). Set httproute.proxySettingsPolicy.timeout instead." }}
       {{- end }}
     {{- end }}
 {{- end }}

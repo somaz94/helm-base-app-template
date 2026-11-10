@@ -65,6 +65,7 @@ Everything except Deployment and Service is toggled by an `enabled` flag (or a l
 | `service.targetPort` | `8080` | Container port |
 | `ingress.enabled` | `false` | Enable ingress |
 | `httproute.enabled` | `false` | Enable Gateway API HTTPRoute creation |
+| `httproute.proxySettingsPolicy.timeout` | `{}` | NGINX Gateway Fabric (NGF) `ProxySettingsPolicy` upstream timeout (`connect`/`read`/`send`). NGF ignores HTTPRoute `timeouts`, so set them here; `rules[].timeouts` fails the render |
 | `autoscaling.enabled` | `false` | Enable HPA |
 | `strategy.enabled` | `false` | Enable custom deployment strategy |
 | `configs.enabled` | `false` | Enable ConfigMap creation |
